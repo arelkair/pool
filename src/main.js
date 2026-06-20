@@ -210,17 +210,29 @@ function stopBanners() { bannerQ = []; bannerBusy = false; ui.clearBanner(); }
 
 function maybeNotifyTurn() {
   if (game.mode === 'solo' || game.turn !== game.myPlayer || !document.hidden) return;
-  if ('Notification' in window && Notification.permission === 'granted') {
-    try { new Notification('Hey, no te despistes, que es tu turno.'); } catch { /* ignore */ }
-  }
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  try {
+    new Notification('Pool', { body: 'Hey, no te despistes, que es tu turno.', tag: 'pool-turn', renotify: true });
+  } catch { /* ignore */ }
 }
 
-async function maybeAskNotifications() {
-  if (!('Notification' in window) || Notification.permission !== 'default') return;
-  const ok = await ui.askNotifications();
-  if (!ok) return;
-  const perm = await Notification.requestPermission();
-  if (perm === 'granted') { audio.notify(); ui.toast('Se han habilitado las notificaciones del sistema.'); }
+function maybeAskNotifications() {
+  return new Promise((resolve) => {
+    if (!('Notification' in window) || Notification.permission !== 'default') { resolve(); return; }
+    const m = ui.el('notif-modal'), a = ui.el('notif-accept'), r = ui.el('notif-reject');
+    m.classList.add('show');
+    const close = () => { m.classList.remove('show'); a.onclick = null; r.onclick = null; };
+    // requestPermission must run inside the click handler, or browsers ignore it (lost user gesture)
+    a.onclick = async () => {
+      close();
+      try {
+        const perm = await Notification.requestPermission();
+        if (perm === 'granted') { audio.notify(); ui.toast('Se han habilitado las notificaciones del sistema.'); }
+      } catch { /* ignore */ }
+      resolve();
+    };
+    r.onclick = () => { close(); resolve(); };
+  });
 }
 
 function sendState() {
@@ -280,9 +292,11 @@ function setupInput() {
   window.addEventListener('pointerup', (e) => {
     if (!dragStart) return;
     const p = pos(e);
-    const dx = game.cue.x - p.x, dy = game.cue.y - p.y;
-    const dist = Math.hypot(dx, dy);
-    if (canShoot() && dist > MIN_DRAG) {
+    // require an actual DRAG (movement from where you pressed) — a plain click never shoots
+    const dragged = Math.hypot(p.x - dragStart.x, p.y - dragStart.y);
+    if (canShoot() && dragged > MIN_DRAG) {
+      const dx = game.cue.x - p.x, dy = game.cue.y - p.y;
+      const dist = Math.hypot(dx, dy);
       const power = Math.pow(Math.min(dist, MAX_DRAG) / MAX_DRAG, POWER_CURVE);
       if (game.mode === 'guest') game.net.send({ type: 'shoot', dx, dy, power });
       else doShoot(dx, dy, power);

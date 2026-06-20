@@ -76,7 +76,6 @@ function modal(modalId, acceptId, rejectId) {
     r.onclick = () => done(false);
   });
 }
-export const askNotifications = () => modal('notif-modal', 'notif-accept', 'notif-reject');
 export function confirm(text) {
   el('confirm-text').textContent = text;
   return modal('confirm-modal', 'confirm-accept', 'confirm-reject');
