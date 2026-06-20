@@ -1,7 +1,7 @@
 import { Application, Container, Graphics, Text } from 'pixi.js';
 import { CANVAS_W, CANVAS_H, BALL_R, MAX_DRAG, MIN_DRAG, POWER_CURVE } from './config.js';
 import { rack, step, allStopped, shoot, respawnCue } from './physics.js';
-import { drawTable, buildBallVisual, drawAim, drawPower } from './scene.js';
+import { drawTable, buildBallVisual, drawAim, drawPower, initBallTextures } from './scene.js';
 import { host, join } from './net.js';
 import * as ui from './ui.js';
 import * as audio from './audio.js';
@@ -38,6 +38,7 @@ async function main() {
   powerLabel.visible = false;
   app.stage.addChild(aimLine, powerBar, powerLabel);
 
+  initBallTextures(app.renderer);
   setupRack();
   setupInput();
 

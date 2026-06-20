@@ -1,6 +1,6 @@
 // All PixiJS drawing: the table, ball sprites, aim line and power bar.
-import { Container, Graphics, Text, FillGradient } from 'pixi.js';
-import { CANVAS_W, CANVAS_H, CUSHION, TABLE_W, TABLE_H, BALL_R, POCKET_R } from './config.js';
+import { Container, Graphics, Text, Sprite, Rectangle, FillGradient } from 'pixi.js';
+import { CANVAS_W, CANVAS_H, CUSHION, TABLE_W, TABLE_H, BALL_R, POCKET_R, BALL_COLORS } from './config.js';
 import { pocketPositions } from './physics.js';
 
 export function drawTable() {
@@ -56,36 +56,31 @@ export function drawTable() {
   return g;
 }
 
-export function buildBallVisual(ball) {
-  const c = new Container();
-  const isCue = ball.number === 0;
-  const isStripe = ball.number >= 9;
-
-  c.addChild(new Graphics().ellipse(2.5, 3.5, BALL_R * 1.05, BALL_R * 0.9).fill({ color: 0x000000, alpha: 0.28 }));
-
-  // the cue ball gets a bright halo so it clearly stands out from the rest
-  if (isCue) c.addChild(new Graphics().circle(0, 0, BALL_R + 2.5).fill({ color: 0xffffff, alpha: 0.18 }));
-
-  // spinning layer: the painted surface (colour, stripe, number) rotates as the ball rolls
-  const spin = new Container();
-  spin.addChild(new Graphics().circle(0, 0, BALL_R).fill(isCue ? 0xffffff : isStripe ? 0xfdfdfd : ball.color));
+// The painted face (colour + stripe + number) — this is what spins as the ball rolls.
+function faceGraphics(number, color) {
+  const g = new Container();
+  const isCue = number === 0;
+  const isStripe = number >= 9;
+  g.addChild(new Graphics().circle(0, 0, BALL_R).fill(isCue ? 0xffffff : isStripe ? 0xfdfdfd : color));
   if (isStripe) {
-    const band = new Graphics().rect(-BALL_R, -BALL_R * 0.52, BALL_R * 2, BALL_R * 1.04).fill(ball.color);
+    const band = new Graphics().rect(-BALL_R, -BALL_R * 0.52, BALL_R * 2, BALL_R * 1.04).fill(color);
     const mask = new Graphics().circle(0, 0, BALL_R).fill(0xffffff);
-    spin.addChild(band, mask);
+    g.addChild(band, mask);
     band.mask = mask;
   }
   if (!isCue) {
-    spin.addChild(new Graphics().circle(0, 0, BALL_R * 0.5).fill(0xffffff));
-    spin.addChild(new Graphics().circle(0, 0, BALL_R * 0.5).stroke({ width: 0.6, color: 0x000000, alpha: 0.15 }));
-    const t = new Text({ text: String(ball.number), style: { fontFamily: 'Arial, sans-serif', fontSize: 9, fontWeight: 'bold', fill: 0x141414 } });
+    g.addChild(new Graphics().circle(0, 0, BALL_R * 0.5).fill(0xffffff));
+    g.addChild(new Graphics().circle(0, 0, BALL_R * 0.5).stroke({ width: 0.6, color: 0x000000, alpha: 0.15 }));
+    const t = new Text({ text: String(number), style: { fontFamily: 'Arial, sans-serif', fontSize: 9, fontWeight: 'bold', fill: 0x141414 } });
     t.anchor.set(0.5);
-    spin.addChild(t);
+    g.addChild(t);
   }
-  c.addChild(spin);
-  c.spin = spin;
+  return g;
+}
 
-  // sphere shading — lighter than before so the balls read brighter and clearer
+// The fixed shading/highlights drawn on top (does NOT spin — light stays put).
+function overlayGraphics(isCue) {
+  const g = new Container();
   const shade = new FillGradient({
     type: 'radial',
     innerCenter: { x: 0.36, y: 0.32 }, innerRadius: 0.08,
@@ -97,13 +92,50 @@ export function buildBallVisual(ball) {
     ],
     textureSpace: 'local',
   });
-  c.addChild(new Graphics().circle(0, 0, BALL_R).fill(shade));
-  // bounced-light rim along the bottom edge (reads as a sphere)
-  c.addChild(new Graphics().ellipse(BALL_R * 0.16, BALL_R * 0.52, BALL_R * 0.58, BALL_R * 0.22).fill({ color: 0xffffff, alpha: 0.14 }));
-  // soft + sharp specular highlights (top-left light)
-  c.addChild(new Graphics().ellipse(-BALL_R * 0.32, -BALL_R * 0.36, BALL_R * 0.5, BALL_R * 0.36).fill({ color: 0xffffff, alpha: 0.6 }));
-  c.addChild(new Graphics().circle(-BALL_R * 0.4, -BALL_R * 0.44, BALL_R * 0.15).fill({ color: 0xffffff, alpha: 1 }));
-  c.addChild(new Graphics().circle(0, 0, BALL_R).stroke({ width: 1, color: isCue ? 0xcfe0d0 : 0x000000, alpha: isCue ? 0.5 : 0.2 }));
+  g.addChild(new Graphics().circle(0, 0, BALL_R).fill(shade));
+  g.addChild(new Graphics().ellipse(BALL_R * 0.16, BALL_R * 0.52, BALL_R * 0.58, BALL_R * 0.22).fill({ color: 0xffffff, alpha: 0.14 }));
+  g.addChild(new Graphics().ellipse(-BALL_R * 0.32, -BALL_R * 0.36, BALL_R * 0.5, BALL_R * 0.36).fill({ color: 0xffffff, alpha: 0.6 }));
+  g.addChild(new Graphics().circle(-BALL_R * 0.4, -BALL_R * 0.44, BALL_R * 0.15).fill({ color: 0xffffff, alpha: 1 }));
+  g.addChild(new Graphics().circle(0, 0, BALL_R).stroke({ width: 1, color: isCue ? 0xcfe0d0 : 0x000000, alpha: isCue ? 0.5 : 0.2 }));
+  return g;
+}
+
+// Bake each ball part to a texture ONCE — runtime then draws cheap sprites instead of
+// re-tessellating graphics and applying a mask per ball every frame.
+let TEX = null;
+export function initBallTextures(renderer) {
+  if (TEX) return;
+  const bake = (node, half) => {
+    const t = renderer.generateTexture({ target: node, frame: new Rectangle(-half, -half, half * 2, half * 2), resolution: 2, antialias: true });
+    node.destroy({ children: true });
+    return t;
+  };
+  const R = BALL_R + 2;
+  const faces = new Map();
+  for (let n = 0; n <= 15; n++) faces.set(n, bake(faceGraphics(n, BALL_COLORS[n]), R));
+  const shadow = new Graphics().ellipse(0, 0, BALL_R * 1.05, BALL_R * 0.9).fill({ color: 0x000000, alpha: 0.28 });
+  const halo = new Graphics().circle(0, 0, BALL_R + 2.5).fill({ color: 0xffffff, alpha: 0.18 });
+  TEX = {
+    faces,
+    overlayNormal: bake(overlayGraphics(false), R),
+    overlayCue: bake(overlayGraphics(true), R),
+    shadow: bake(shadow, BALL_R + 4),
+    halo: bake(halo, BALL_R + 4),
+  };
+}
+
+export function buildBallVisual(ball) {
+  const c = new Container();
+  const isCue = ball.number === 0;
+
+  const shadow = new Sprite(TEX.shadow); shadow.anchor.set(0.5); shadow.position.set(2.5, 3.5);
+  c.addChild(shadow);
+  if (isCue) { const halo = new Sprite(TEX.halo); halo.anchor.set(0.5); c.addChild(halo); }
+
+  const face = new Sprite(TEX.faces.get(ball.number)); face.anchor.set(0.5);
+  const overlay = new Sprite(isCue ? TEX.overlayCue : TEX.overlayNormal); overlay.anchor.set(0.5);
+  c.addChild(face, overlay);
+  c.spin = face; // only the painted face rotates
   return c;
 }
 
