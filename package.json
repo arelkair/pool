@@ -7,14 +7,13 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "start": "vite build && node server.js"
+    "test": "node src/physics.js"
   },
   "devDependencies": {
     "vite": "^8.0.12"
   },
   "dependencies": {
-    "matter-js": "^0.20.0",
-    "pixi.js": "^8.19.0",
-    "ws": "^8.21.0"
+    "peerjs": "^1.5.5",
+    "pixi.js": "^8.19.0"
   }
 }
