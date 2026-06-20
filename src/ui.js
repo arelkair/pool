@@ -22,6 +22,7 @@ export function banner(text) {
   void b.offsetWidth; // restart the CSS animation
   b.classList.add('show');
 }
+export function clearBanner() { el('banner').classList.remove('show'); }
 
 export function enterGame() {
   el('menu').classList.add('hidden');
@@ -49,6 +50,14 @@ export function updateTurn(mode, mine) {
   t.style.background = mine ? 'rgba(70,220,140,.28)' : 'rgba(220,90,90,.28)';
 }
 
+// persistent badge showing which group is yours: 'solids' | 'stripes' | null
+export function updateGroup(mode, group) {
+  const g = el('hud-group');
+  if (mode === 'solo' || !group) { g.style.display = 'none'; return; }
+  g.style.display = '';
+  g.textContent = group === 'stripes' ? 'Rayadas' : 'Lisas';
+}
+
 export function setStatus(id, text, error = false) {
   const s = el(id);
   s.textContent = text;
@@ -68,4 +77,7 @@ function modal(modalId, acceptId, rejectId) {
   });
 }
 export const askNotifications = () => modal('notif-modal', 'notif-accept', 'notif-reject');
-export const askRestart = () => modal('confirm-modal', 'confirm-accept', 'confirm-reject');
+export function confirm(text) {
+  el('confirm-text').textContent = text;
+  return modal('confirm-modal', 'confirm-accept', 'confirm-reject');
+}

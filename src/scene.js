@@ -61,45 +61,49 @@ export function buildBallVisual(ball) {
   const isCue = ball.number === 0;
   const isStripe = ball.number >= 9;
 
-  c.addChild(new Graphics().ellipse(2.5, 3.5, BALL_R * 1.05, BALL_R * 0.9).fill({ color: 0x000000, alpha: 0.3 }));
+  c.addChild(new Graphics().ellipse(2.5, 3.5, BALL_R * 1.05, BALL_R * 0.9).fill({ color: 0x000000, alpha: 0.28 }));
+
+  // the cue ball gets a bright halo so it clearly stands out from the rest
+  if (isCue) c.addChild(new Graphics().circle(0, 0, BALL_R + 2.5).fill({ color: 0xffffff, alpha: 0.18 }));
 
   // spinning layer: the painted surface (colour, stripe, number) rotates as the ball rolls
   const spin = new Container();
-  spin.addChild(new Graphics().circle(0, 0, BALL_R).fill(isStripe ? 0xffffff : ball.color));
+  spin.addChild(new Graphics().circle(0, 0, BALL_R).fill(isCue ? 0xffffff : isStripe ? 0xfdfdfd : ball.color));
   if (isStripe) {
-    const band = new Graphics().rect(-BALL_R, -BALL_R * 0.5, BALL_R * 2, BALL_R).fill(ball.color);
+    const band = new Graphics().rect(-BALL_R, -BALL_R * 0.52, BALL_R * 2, BALL_R * 1.04).fill(ball.color);
     const mask = new Graphics().circle(0, 0, BALL_R).fill(0xffffff);
     spin.addChild(band, mask);
     band.mask = mask;
   }
   if (!isCue) {
-    spin.addChild(new Graphics().circle(0, 0, BALL_R * 0.48).fill(0xfbf7ec));
-    const t = new Text({ text: String(ball.number), style: { fontFamily: 'Arial, sans-serif', fontSize: 9, fontWeight: 'bold', fill: 0x111111 } });
+    spin.addChild(new Graphics().circle(0, 0, BALL_R * 0.5).fill(0xffffff));
+    spin.addChild(new Graphics().circle(0, 0, BALL_R * 0.5).stroke({ width: 0.6, color: 0x000000, alpha: 0.15 }));
+    const t = new Text({ text: String(ball.number), style: { fontFamily: 'Arial, sans-serif', fontSize: 9, fontWeight: 'bold', fill: 0x141414 } });
     t.anchor.set(0.5);
     spin.addChild(t);
   }
   c.addChild(spin);
   c.spin = spin;
 
-  // sphere shading — fixed relative to the light, so it stays put while the surface spins
+  // sphere shading — lighter than before so the balls read brighter and clearer
   const shade = new FillGradient({
     type: 'radial',
-    innerCenter: { x: 0.38, y: 0.34 }, innerRadius: 0.1,
-    outerCenter: { x: 0.5, y: 0.5 }, outerRadius: 0.52,
+    innerCenter: { x: 0.36, y: 0.32 }, innerRadius: 0.08,
+    outerCenter: { x: 0.5, y: 0.5 }, outerRadius: 0.54,
     colorStops: [
-      { offset: 0, color: 'rgba(0,0,0,0)' },
-      { offset: 0.65, color: 'rgba(0,0,0,0)' },
-      { offset: 1, color: 'rgba(0,0,0,0.5)' },
+      { offset: 0, color: 'rgba(255,255,255,0.10)' },
+      { offset: 0.55, color: 'rgba(0,0,0,0)' },
+      { offset: 1, color: `rgba(0,0,0,${isCue ? 0.28 : 0.36})` },
     ],
     textureSpace: 'local',
   });
   c.addChild(new Graphics().circle(0, 0, BALL_R).fill(shade));
-  // bounced-light rim along the bottom edge (makes it read as a sphere)
-  c.addChild(new Graphics().ellipse(BALL_R * 0.18, BALL_R * 0.5, BALL_R * 0.55, BALL_R * 0.22).fill({ color: 0xffffff, alpha: 0.12 }));
+  // bounced-light rim along the bottom edge (reads as a sphere)
+  c.addChild(new Graphics().ellipse(BALL_R * 0.16, BALL_R * 0.52, BALL_R * 0.58, BALL_R * 0.22).fill({ color: 0xffffff, alpha: 0.14 }));
   // soft + sharp specular highlights (top-left light)
-  c.addChild(new Graphics().ellipse(-BALL_R * 0.32, -BALL_R * 0.36, BALL_R * 0.46, BALL_R * 0.34).fill({ color: 0xffffff, alpha: 0.55 }));
-  c.addChild(new Graphics().circle(-BALL_R * 0.4, -BALL_R * 0.44, BALL_R * 0.13).fill({ color: 0xffffff, alpha: 0.95 }));
-  c.addChild(new Graphics().circle(0, 0, BALL_R).stroke({ width: 1, color: 0x000000, alpha: 0.22 }));
+  c.addChild(new Graphics().ellipse(-BALL_R * 0.32, -BALL_R * 0.36, BALL_R * 0.5, BALL_R * 0.36).fill({ color: 0xffffff, alpha: 0.6 }));
+  c.addChild(new Graphics().circle(-BALL_R * 0.4, -BALL_R * 0.44, BALL_R * 0.15).fill({ color: 0xffffff, alpha: 1 }));
+  c.addChild(new Graphics().circle(0, 0, BALL_R).stroke({ width: 1, color: isCue ? 0xcfe0d0 : 0x000000, alpha: isCue ? 0.5 : 0.2 }));
   return c;
 }
 

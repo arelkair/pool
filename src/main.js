@@ -1,5 +1,5 @@
 import { Application, Container, Graphics, Text } from 'pixi.js';
-import { CANVAS_W, CANVAS_H, MAX_DRAG, MIN_DRAG } from './config.js';
+import { CANVAS_W, CANVAS_H, BALL_R, MAX_DRAG, MIN_DRAG, POWER_CURVE } from './config.js';
 import { rack, step, allStopped, shoot, respawnCue } from './physics.js';
 import { drawTable, buildBallVisual, drawAim, drawPower } from './scene.js';
 import { host, join } from './net.js';
@@ -20,6 +20,7 @@ const game = {
 
 let app, ballLayer, aimLine, powerBar, powerLabel, frame = 0;
 let bannerQ = [], bannerBusy = false;
+let lastPhysics = 0;
 
 async function main() {
   app = new Application();
@@ -39,42 +40,60 @@ async function main() {
 
   setupRack();
   setupInput();
-  app.ticker.add(tick);
+
+  // physics on a timer so the match keeps running while the tab is in the background;
+  // the Pixi ticker only renders (it pauses when hidden, which is fine — nobody's watching).
+  lastPhysics = performance.now();
+  setInterval(physicsLoop, 1000 / 60);
+  app.ticker.add(renderFrame);
+
   wireMenu();
 
-  // start audio on the first user gesture (browser autoplay policy)
   const kick = () => { audio.resume(); audio.startMusic(); window.removeEventListener('pointerdown', kick); };
   window.addEventListener('pointerdown', kick);
 }
 
-function tick() {
-  if (game.mode !== 'guest') {
-    const { potted, hits } = step(game.balls);
-    for (const h of hits) {
-      if (h.type === 'ball') { audio.ballHit(h.speed); game.sfxBall = Math.max(game.sfxBall, h.speed); }
-      else { audio.railHit(h.speed); game.sfxRail = Math.max(game.sfxRail, h.speed); }
-    }
-    for (const b of potted) {
-      audio.pocket(); game.sfxPocket++;
-      game.shotPotted.push(b.number);
-      if (b.number === 0) game.cueFoul = true;
-    }
-    if (potted.length) refreshHud();
-    if (game.cue.potted && allStopped(game.balls)) respawnCue(game.cue);
-    if (game.shooting && allStopped(game.balls)) {
-      if (game.mode === 'host') resolveTurn();
-      else { game.shooting = false; refreshHud(); } // solo: free play
-    }
-    for (const [ball, spr] of game.sprites) {
-      if (ball.potted) continue;
+function physicsLoop() {
+  const now = performance.now();
+  let n = Math.round((now - lastPhysics) / (1000 / 60));
+  if (n < 1) return;
+  lastPhysics = now;
+  if (n > 150) n = 150; // cap catch-up after a long time hidden
+  for (let i = 0; i < n; i++) physicsFrame();
+}
+
+function physicsFrame() {
+  if (game.mode === 'guest') return;
+  const audible = !document.hidden;
+  const { potted, hits } = step(game.balls);
+  for (const h of hits) {
+    if (h.type === 'ball') { if (audible) audio.ballHit(h.speed); game.sfxBall = Math.max(game.sfxBall, h.speed); }
+    else { if (audible) audio.railHit(h.speed); game.sfxRail = Math.max(game.sfxRail, h.speed); }
+  }
+  for (const b of potted) {
+    if (audible) audio.pocket();
+    game.sfxPocket++;
+    game.shotPotted.push(b.number);
+    if (b.number === 0) game.cueFoul = true;
+  }
+  if (potted.length) refreshHud();
+  if (game.cue.potted && allStopped(game.balls)) respawnCue(game.cue);
+  if (game.shooting && allStopped(game.balls)) {
+    if (game.mode === 'host') resolveTurn();
+    else { game.shooting = false; refreshHud(); } // solo: free play
+  }
+  if (game.mode === 'host' && game.started && game.net && (++frame % 2 === 0)) sendState();
+}
+
+function renderFrame() {
+  for (const [ball, spr] of game.sprites) {
+    spr.visible = !ball.potted;
+    if (ball.potted) continue;
+    spr.position.set(ball.x, ball.y);
+    if (game.mode !== 'guest') {
       const sp = Math.hypot(ball.vx, ball.vy);
       spr.spin.rotation += (ball.vx >= 0 ? 1 : -1) * sp * 0.04;
     }
-    if (game.mode === 'host' && game.started && game.net && (++frame % 2 === 0)) sendState();
-  }
-  for (const [ball, spr] of game.sprites) {
-    spr.visible = !ball.potted;
-    if (!ball.potted) spr.position.set(ball.x, ball.y);
   }
 }
 
@@ -104,6 +123,7 @@ function refreshHud() {
     const p = mg ? game.balls.filter((b) => groupOf(b.number) === mg && b.potted).length : 0;
     ui.updateHud(game.shots, p, 7);
   }
+  ui.updateGroup(game.mode, game.groups[game.myPlayer]);
 }
 
 function canShoot() {
@@ -158,7 +178,7 @@ function endGame(winner) {
 
 function showEndBanner() {
   const won = game.winner === game.myPlayer;
-  ui.banner(won ? '¡Has ganado!' : 'Has perdido.');
+  ui.banner(won ? 'Has ganado.' : 'Has perdido.');
   won ? audio.win() : audio.lose();
 }
 
@@ -185,6 +205,7 @@ function nextBanner() {
   ui.banner(bannerQ.shift());
   setTimeout(nextBanner, 2500);
 }
+function stopBanners() { bannerQ = []; bannerBusy = false; ui.clearBanner(); }
 
 function maybeNotifyTurn() {
   if (game.mode === 'solo' || game.turn !== game.myPlayer || !document.hidden) return;
@@ -220,7 +241,11 @@ function applyState(m) {
     if (!e) continue;
     e.ball.x = bs.x; e.ball.y = bs.y; e.ball.potted = bs.p; e.spr.spin.rotation = bs.r;
   }
-  if (m.sfx) { if (m.sfx.b > 0) audio.ballHit(m.sfx.b); if (m.sfx.r > 0) audio.railHit(m.sfx.r); for (let i = 0; i < m.sfx.p; i++) audio.pocket(); }
+  if (m.sfx && !document.hidden) {
+    if (m.sfx.b > 0) audio.ballHit(m.sfx.b);
+    if (m.sfx.r > 0) audio.railHit(m.sfx.r);
+    for (let i = 0; i < m.sfx.p; i++) audio.pocket();
+  }
   refreshHud();
   ui.updateTurn(game.mode, game.turn === game.myPlayer);
   if (m.turn !== prevTurn) {
@@ -238,15 +263,18 @@ function setupInput() {
     return { x: (e.clientX - r.left) * (app.canvas.width / r.width), y: (e.clientY - r.top) * (app.canvas.height / r.height) };
   };
   app.canvas.addEventListener('pointerdown', (e) => {
-    // ignore the click that just brought the window back into focus, and require aiming
-    if (!document.hasFocus() || !canShoot()) return;
-    dragStart = pos(e);
+    if (!document.hasFocus() || !canShoot()) return; // ignore clicks that just refocus the window
+    const p = pos(e);
+    // you must grab the cue ball itself and drag — clicking elsewhere does nothing
+    if (Math.hypot(p.x - game.cue.x, p.y - game.cue.y) > BALL_R * 3) return;
+    dragStart = p;
   });
   window.addEventListener('pointermove', (e) => {
     if (!dragStart) return;
     const p = pos(e);
     drawAim(aimLine, game.cue, p.x, p.y);
-    drawPower(powerBar, powerLabel, Math.min(Math.hypot(game.cue.x - p.x, game.cue.y - p.y), MAX_DRAG) / MAX_DRAG);
+    const frac = Math.min(Math.hypot(game.cue.x - p.x, game.cue.y - p.y), MAX_DRAG) / MAX_DRAG;
+    drawPower(powerBar, powerLabel, Math.pow(frac, POWER_CURVE));
   });
   window.addEventListener('pointerup', (e) => {
     if (!dragStart) return;
@@ -254,7 +282,7 @@ function setupInput() {
     const dx = game.cue.x - p.x, dy = game.cue.y - p.y;
     const dist = Math.hypot(dx, dy);
     if (canShoot() && dist > MIN_DRAG) {
-      const power = Math.min(dist, MAX_DRAG) / MAX_DRAG;
+      const power = Math.pow(Math.min(dist, MAX_DRAG) / MAX_DRAG, POWER_CURVE);
       if (game.mode === 'guest') game.net.send({ type: 'shoot', dx, dy, power });
       else doShoot(dx, dy, power);
     }
@@ -268,6 +296,15 @@ function closeNet() {
   game.started = false;
 }
 
+function leaveGame() {
+  const wasMulti = game.mode !== 'solo';
+  closeNet();
+  game.mode = 'solo';
+  stopBanners();
+  ui.backToMenu();
+  if (wasMulti) ui.toast('Te has salido de la partida.');
+}
+
 function onMessage(m) {
   if (m.type === 'start' && game.mode === 'guest') {
     setupRack();
@@ -278,6 +315,12 @@ function onMessage(m) {
   else if (m.type === 'shoot' && game.mode === 'host' && game.turn === 2 && !game.gameOver) doShoot(m.dx, m.dy, m.power);
 }
 
+function newMatchGroups() {
+  const p1 = Math.random() < 0.5 ? 'solids' : 'stripes';
+  game.groups = { 1: p1, 2: p1 === 'solids' ? 'stripes' : 'solids' };
+  game.turn = 1;
+}
+
 function startHost() {
   closeNet();
   game.mode = 'host'; game.myPlayer = 1;
@@ -286,9 +329,8 @@ function startHost() {
     ready: (code) => { ui.el('host-code').textContent = code; },
     joined: () => {
       setupRack();
-      const p1 = Math.random() < 0.5 ? 'solids' : 'stripes';
-      game.groups = { 1: p1, 2: p1 === 'solids' ? 'stripes' : 'solids' };
-      game.turn = 1; game.started = true;
+      newMatchGroups();
+      game.started = true;
       audio.notify();
       ui.toast('El rival se ha unido a la partida');
       ui.enterGame();
@@ -324,32 +366,35 @@ function wireMenu() {
   click('btn-quit', () => window.close());
   document.querySelectorAll('[data-back]').forEach((b) => { b.onclick = () => { audio.uiClick(); closeNet(); ui.showScreen(b.dataset.back); }; });
 
-  click('btn-solo', () => { closeNet(); game.mode = 'solo'; setupRack(); ui.enterGame(); ui.updateTurn('solo'); });
+  click('btn-solo', () => { closeNet(); game.mode = 'solo'; setupRack(); stopBanners(); ui.enterGame(); ui.updateTurn('solo'); ui.updateGroup('solo'); });
   click('btn-multi', () => ui.showScreen('screen-mp'));
   click('btn-create', () => { ui.showScreen('screen-host'); startHost(); });
   click('btn-join', () => { ui.setStatus('join-status', ''); ui.showScreen('screen-join'); });
   click('btn-connect', startJoin);
 
-  ui.el('btn-mute').onclick = () => { audio.setMuted(!audio.isMuted()); ui.setMuteIcon(audio.isMuted()); audio.uiClick(); };
+  ui.el('btn-mute').onclick = () => { audio.resume(); audio.setMuted(!audio.isMuted()); ui.setMuteIcon(audio.isMuted()); audio.uiClick(); };
   ui.el('btn-restart').onclick = async () => {
-    audio.uiClick();
+    audio.resume(); audio.uiClick();
     if (game.mode === 'guest') return;
-    const ok = await ui.askRestart();
+    const ok = await ui.confirm('¿Estás seguro de que quieres reiniciar la partida?');
     if (!ok) return;
     setupRack();
+    stopBanners();
     if (game.mode === 'host') {
-      const p1 = Math.random() < 0.5 ? 'solids' : 'stripes';
-      game.groups = { 1: p1, 2: p1 === 'solids' ? 'stripes' : 'solids' };
-      game.turn = 1;
+      newMatchGroups();
       game.net.send({ type: 'start', groups: game.groups, turn: game.turn });
       sendState();
       announceGroupAndTurn();
     }
     ui.showHint();
   };
-  ui.el('btn-menu').onclick = () => { audio.uiClick(); closeNet(); game.mode = 'solo'; ui.backToMenu(); };
+  ui.el('btn-menu').onclick = async () => {
+    audio.resume(); audio.uiClick();
+    const ok = await ui.confirm('¿Estás seguro de que quieres salir?');
+    if (!ok) return;
+    leaveGame();
+  };
 
-  // subtle hover blips on menu buttons
   document.querySelectorAll('.glass').forEach((b) => b.addEventListener('pointerenter', () => audio.uiHover()));
 }
 
