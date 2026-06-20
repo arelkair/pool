@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pool</title>
+    <style>
+      html, body { margin: 0; height: 100%; background: #050a07; overflow: hidden;
+        font-family: system-ui, 'Segoe UI', sans-serif; color: #fff; }
+      #app { display: flex; align-items: center; justify-content: center; height: 100%; }
+
+      #menu {
+        position: fixed; inset: 0; z-index: 10;
+        display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
+        background: radial-gradient(circle at 50% 32%, #1f6e44 0%, #0c2419 60%, #04100a 100%);
+      }
+      #menu.hidden { display: none; }
+      #menu h1 {
+        margin: 0 0 28px; font-size: 84px; font-weight: 800; letter-spacing: 2px; color: #f3fff8;
+        text-shadow: 0 6px 30px rgba(0,0,0,.55), 0 0 50px rgba(60,220,140,.3);
+      }
+      .screen { display: none; flex-direction: column; align-items: center; gap: 16px; }
+      .screen.active { display: flex; }
+
+      .glass {
+        width: 300px; padding: 16px 0; font-size: 18px; font-weight: 600; color: #fff;
+        background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.28);
+        border-radius: 14px; cursor: pointer;
+        backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+        box-shadow: 0 10px 30px rgba(0,0,0,.3), inset 0 1px 0 rgba(255,255,255,.35);
+        transition: background .15s, transform .08s;
+      }
+      .glass:hover { background: rgba(255,255,255,.2); }
+      .glass:active { transform: scale(.97); }
+      .glass.small { width: 140px; font-size: 15px; padding: 12px 0; }
+
+      #settings { max-width: 300px; padding: 16px 20px; border-radius: 12px;
+        color: #ffe7a6; font-size: 13px; line-height: 1.7; text-align: center;
+        background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.25); }
+
+      .mp-field { display: flex; flex-direction: column; gap: 8px; align-items: stretch; width: 300px; }
+      .mp-field label { font-size: 13px; opacity: .85; }
+      .mp-field input {
+        font-family: inherit; font-size: 16px; padding: 12px 14px; border-radius: 10px; color: #fff;
+        background: rgba(0,0,0,.35); border: 1px solid rgba(255,255,255,.3); outline: none;
+      }
+      .mp-field input:focus { border-color: rgba(120,255,180,.7); }
+      #mp-status { font-size: 13px; min-height: 18px; color: #bff5d2; text-align: center; }
+      #mp-status.error { color: #ff9b9b; }
+
+      #hud {
+        position: fixed; top: 0; left: 0; right: 0; z-index: 5;
+        display: none; align-items: center; justify-content: space-between;
+        padding: 12px 18px; font-size: 14px; pointer-events: none;
+      }
+      #hud.show { display: flex; }
+      #hud .stats { display: flex; gap: 22px; align-items: center; text-shadow: 0 2px 6px rgba(0,0,0,.8); }
+      #hud .stats b { color: #8effc0; }
+      #hud #hud-turn { padding: 4px 12px; border-radius: 20px; background: rgba(60,200,130,.25);
+        border: 1px solid rgba(120,255,180,.5); }
+      #hud .actions { display: flex; gap: 10px; pointer-events: auto; }
+      #hud button {
+        font-family: inherit; font-size: 13px; color: #fff; padding: 8px 14px; cursor: pointer;
+        background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.3); border-radius: 9px;
+        backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+      }
+      #hud button:hover { background: rgba(255,255,255,.24); }
+
+      #hint {
+        position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 6;
+        padding: 12px 18px; border-radius: 10px; color: #eafff2; font-size: 13px; line-height: 1.5; text-align: center;
+        background: rgba(0,0,0,.5); border: 1px solid rgba(255,255,255,.25);
+        backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+        transition: opacity .4s; pointer-events: none;
+      }
+      #hint.gone { opacity: 0; }
+
+      #toast {
+        position: fixed; top: 18px; left: 18px; z-index: 20;
+        padding: 14px 20px; border-radius: 12px; font-size: 15px; font-weight: 600; color: #042;
+        background: linear-gradient(135deg, #9bffc8, #4fe39a);
+        box-shadow: 0 10px 30px rgba(0,0,0,.4);
+        transform: translateX(-130%); transition: transform .4s ease;
+      }
+      #toast.show { transform: translateX(0); }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+
+    <div id="hud">
+      <div class="stats">
+        <span id="hud-turn">Tu turno</span>
+        <span>TIROS: <b id="hud-shots">0</b></span>
+        <span>EMBOCADAS: <b id="hud-potted">0/15</b></span>
+      </div>
+      <div class="actions">
+        <button id="btn-restart">Reiniciar</button>
+        <button id="btn-menu">Menú</button>
+      </div>
+    </div>
+
+    <div id="hint">Arrastra desde la bola blanca y suelta para tirar. Cuanto más estiras, más fuerza.</div>
+    <div id="toast">El jugador 2 se ha unido a la partida</div>
+
+    <div id="menu">
+      <h1>Pool</h1>
+
+      <div class="screen active" id="screen-main">
+        <button class="glass" id="btn-play">Jugar</button>
+        <button class="glass" id="btn-settings">Ajustes</button>
+        <button class="glass" id="btn-quit">Salir</button>
+        <div id="settings" style="display:none">Esta función se encuentra actualmente en desarrollo.</div>
+      </div>
+
+      <div class="screen" id="screen-mode">
+        <button class="glass" id="btn-solo">Solo</button>
+        <button class="glass" id="btn-multi">Multijugador</button>
+        <button class="glass small" data-back>Volver</button>
+      </div>
+
+      <div class="screen" id="screen-mp">
+        <div class="mp-field">
+          <label for="mp-ip">IP del anfitrión</label>
+          <input id="mp-ip" value="192.168.1.35" autocomplete="off" spellcheck="false" />
+        </div>
+        <button class="glass" id="btn-connect">Conectar</button>
+        <div id="mp-status"></div>
+        <button class="glass small" data-back>Volver</button>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
