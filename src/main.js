@@ -1,23 +1,30 @@
 import { Application, Container, Graphics, Text } from 'pixi.js';
-import { CANVAS_W, CANVAS_H, BALL_R, MAX_DRAG, MIN_DRAG } from './config.js';
+import { CANVAS_W, CANVAS_H, MAX_DRAG, MIN_DRAG } from './config.js';
 import { rack, step, allStopped, shoot, respawnCue } from './physics.js';
 import { drawTable, buildBallVisual, drawAim, drawPower } from './scene.js';
 import { host, join } from './net.js';
 import * as ui from './ui.js';
+import * as audio from './audio.js';
+
+const groupOf = (n) => (n === 0 ? 'cue' : n === 8 ? 'eight' : n <= 7 ? 'solids' : 'stripes');
+const other = (p) => (p === 1 ? 2 : 1);
 
 const game = {
   mode: 'solo', myPlayer: 1, turn: 1, started: false,
   balls: null, cue: null, sprites: null, byNumber: null,
-  shots: 0, potted: 0, shooting: false, pottedAtShot: 0, cueFoul: false,
+  shots: 0, shooting: false, shotPotted: [], cueFoul: false,
+  groups: { 1: null, 2: null }, gameOver: false, winner: null,
   net: null, settled: true, cuePotted: false,
+  sfxBall: 0, sfxRail: 0, sfxPocket: 0,
 };
 
 let app, ballLayer, aimLine, powerBar, powerLabel, frame = 0;
+let bannerQ = [], bannerBusy = false;
 
 async function main() {
   app = new Application();
   await app.init({ width: CANVAS_W, height: CANVAS_H, backgroundColor: 0x081109, antialias: true });
-  app.ticker.maxFPS = 60; // keep frame-based physics consistent across refresh rates
+  app.ticker.maxFPS = 60;
   document.getElementById('app').appendChild(app.canvas);
 
   app.stage.addChild(drawTable());
@@ -34,16 +41,30 @@ async function main() {
   setupInput();
   app.ticker.add(tick);
   wireMenu();
+
+  // start audio on the first user gesture (browser autoplay policy)
+  const kick = () => { audio.resume(); audio.startMusic(); window.removeEventListener('pointerdown', kick); };
+  window.addEventListener('pointerdown', kick);
 }
 
 function tick() {
   if (game.mode !== 'guest') {
-    step(game.balls);
-    if (game.cue.potted) game.cueFoul = true;
+    const { potted, hits } = step(game.balls);
+    for (const h of hits) {
+      if (h.type === 'ball') { audio.ballHit(h.speed); game.sfxBall = Math.max(game.sfxBall, h.speed); }
+      else { audio.railHit(h.speed); game.sfxRail = Math.max(game.sfxRail, h.speed); }
+    }
+    for (const b of potted) {
+      audio.pocket(); game.sfxPocket++;
+      game.shotPotted.push(b.number);
+      if (b.number === 0) game.cueFoul = true;
+    }
+    if (potted.length) refreshHud();
     if (game.cue.potted && allStopped(game.balls)) respawnCue(game.cue);
-    const potted = game.balls.filter((b) => b.number !== 0 && b.potted).length;
-    if (potted !== game.potted) { game.potted = potted; ui.updateHud(game.shots, game.potted); }
-    if (game.mode === 'host' && game.shooting && allStopped(game.balls)) resolveTurn();
+    if (game.shooting && allStopped(game.balls)) {
+      if (game.mode === 'host') resolveTurn();
+      else { game.shooting = false; refreshHud(); } // solo: free play
+    }
     for (const [ball, spr] of game.sprites) {
       if (ball.potted) continue;
       const sp = Math.hypot(ball.vx, ball.vy);
@@ -69,11 +90,24 @@ function setupRack() {
     game.byNumber.set(b.number, { ball: b, spr: v });
     ballLayer.addChild(v);
   }
-  game.shots = 0; game.potted = 0; game.shooting = false;
-  ui.updateHud(0, 0);
+  game.shots = 0; game.shooting = false; game.shotPotted = []; game.cueFoul = false;
+  game.gameOver = false; game.winner = null;
+  refreshHud();
+}
+
+function refreshHud() {
+  if (game.mode === 'solo') {
+    const p = game.balls.filter((b) => b.number !== 0 && b.potted).length;
+    ui.updateHud(game.shots, p, 15);
+  } else {
+    const mg = game.groups[game.myPlayer];
+    const p = mg ? game.balls.filter((b) => groupOf(b.number) === mg && b.potted).length : 0;
+    ui.updateHud(game.shots, p, 7);
+  }
 }
 
 function canShoot() {
+  if (game.gameOver) return false;
   const stopped = game.mode === 'guest' ? game.settled : allStopped(game.balls);
   if (!stopped) return false;
   if (game.mode === 'guest') return !game.cuePotted && game.turn === game.myPlayer;
@@ -84,42 +118,117 @@ function canShoot() {
 
 function doShoot(dx, dy, power) {
   shoot(game.cue, dx, dy, power);
+  audio.cueStrike();
   game.shots++;
   game.shooting = true;
-  game.pottedAtShot = game.potted;
+  game.shotPotted = [];
   game.cueFoul = false;
-  ui.updateHud(game.shots, game.potted);
+  refreshHud();
   ui.hideHint();
 }
 
 function resolveTurn() {
   game.shooting = false;
-  const gained = game.potted - game.pottedAtShot;
-  if (!(gained > 0 && !game.cueFoul)) game.turn = game.turn === 1 ? 2 : 1;
-  game.cueFoul = false;
-  ui.updateTurn(game.mode, game.turn === game.myPlayer);
+  const shooter = game.turn;
+  const mg = game.groups[shooter];
+  const potted = game.shotPotted;
+  const cueFoul = game.cueFoul || potted.includes(0);
+  const eight = potted.includes(8);
+  const mineCount = potted.filter((n) => groupOf(n) === mg).length;
+
+  if (eight) {
+    const cleared = game.balls.filter((b) => groupOf(b.number) === mg && !b.potted).length === 0;
+    endGame(cleared && !cueFoul ? shooter : other(shooter));
+    return;
+  }
+  const keep = mineCount > 0 && !cueFoul;
+  if (!keep) game.turn = other(shooter);
+  game.shotPotted = []; game.cueFoul = false;
+  refreshHud();
+  announceTurn();
   sendState();
+}
+
+function endGame(winner) {
+  game.gameOver = true; game.winner = winner;
+  refreshHud();
+  showEndBanner();
+  sendState();
+}
+
+function showEndBanner() {
+  const won = game.winner === game.myPlayer;
+  ui.banner(won ? '¡Has ganado!' : 'Has perdido.');
+  won ? audio.win() : audio.lose();
+}
+
+function announceTurn() {
+  ui.updateTurn(game.mode, game.turn === game.myPlayer);
+  queueBanner(game.turn === game.myPlayer ? 'Es tu turno.' : 'Es el turno del rival.');
+  if (game.turn === game.myPlayer) audio.turnChime();
+  maybeNotifyTurn();
+}
+
+function announceGroupAndTurn() {
+  const mg = game.groups[game.myPlayer];
+  queueBanner(mg === 'stripes' ? 'Tienes que meter todas las bolas rayadas.' : 'Tienes que meter todas las bolas lisas.');
+  queueBanner(game.turn === game.myPlayer ? 'Es tu turno.' : 'Es el turno del rival.');
+  ui.updateTurn(game.mode, game.turn === game.myPlayer);
+  if (game.turn === game.myPlayer) { audio.turnChime(); maybeNotifyTurn(); }
+  refreshHud();
+}
+
+function queueBanner(text) { bannerQ.push(text); if (!bannerBusy) nextBanner(); }
+function nextBanner() {
+  if (!bannerQ.length) { bannerBusy = false; return; }
+  bannerBusy = true;
+  ui.banner(bannerQ.shift());
+  setTimeout(nextBanner, 2500);
+}
+
+function maybeNotifyTurn() {
+  if (game.mode === 'solo' || game.turn !== game.myPlayer || !document.hidden) return;
+  if ('Notification' in window && Notification.permission === 'granted') {
+    try { new Notification('Hey, no te despistes, que es tu turno.'); } catch { /* ignore */ }
+  }
+}
+
+async function maybeAskNotifications() {
+  if (!('Notification' in window) || Notification.permission !== 'default') return;
+  const ok = await ui.askNotifications();
+  if (!ok) return;
+  const perm = await Notification.requestPermission();
+  if (perm === 'granted') { audio.notify(); ui.toast('Se han habilitado las notificaciones del sistema.'); }
 }
 
 function sendState() {
   game.net.send({
     type: 'state', turn: game.turn, settled: allStopped(game.balls), cuePotted: game.cue.potted,
-    shots: game.shots, potted: game.potted,
+    shots: game.shots, groups: game.groups, gameOver: game.gameOver, winner: game.winner,
+    sfx: { b: game.sfxBall, r: game.sfxRail, p: game.sfxPocket },
     balls: game.balls.map((b) => ({ n: b.number, x: b.x, y: b.y, r: game.sprites.get(b).spin.rotation, p: b.potted })),
   });
+  game.sfxBall = 0; game.sfxRail = 0; game.sfxPocket = 0;
 }
 
 function applyState(m) {
-  game.turn = m.turn; game.settled = m.settled; game.cuePotted = m.cuePotted;
-  game.shots = m.shots; game.potted = m.potted;
+  const prevTurn = game.turn, prevOver = game.gameOver;
+  game.turn = m.turn; game.settled = m.settled; game.cuePotted = m.cuePotted; game.shots = m.shots;
+  game.groups = m.groups; game.gameOver = m.gameOver; game.winner = m.winner;
   for (const bs of m.balls) {
     const e = game.byNumber.get(bs.n);
     if (!e) continue;
-    e.ball.x = bs.x; e.ball.y = bs.y; e.ball.potted = bs.p;
-    e.spr.spin.rotation = bs.r;
+    e.ball.x = bs.x; e.ball.y = bs.y; e.ball.potted = bs.p; e.spr.spin.rotation = bs.r;
   }
-  ui.updateHud(game.shots, game.potted);
+  if (m.sfx) { if (m.sfx.b > 0) audio.ballHit(m.sfx.b); if (m.sfx.r > 0) audio.railHit(m.sfx.r); for (let i = 0; i < m.sfx.p; i++) audio.pocket(); }
+  refreshHud();
   ui.updateTurn(game.mode, game.turn === game.myPlayer);
+  if (m.turn !== prevTurn) {
+    queueBanner(game.turn === game.myPlayer ? 'Es tu turno.' : 'Es el turno del rival.');
+    if (game.turn === game.myPlayer) audio.turnChime();
+    maybeNotifyTurn();
+  }
+  if (game.gameOver && !prevOver) showEndBanner();
 }
 
 function setupInput() {
@@ -128,8 +237,11 @@ function setupInput() {
     const r = app.canvas.getBoundingClientRect();
     return { x: (e.clientX - r.left) * (app.canvas.width / r.width), y: (e.clientY - r.top) * (app.canvas.height / r.height) };
   };
-  app.canvas.addEventListener('pointerdown', (e) => { if (canShoot()) dragStart = pos(e); });
-  // move/up on window so dragging off the table keeps aiming instead of cancelling the shot
+  app.canvas.addEventListener('pointerdown', (e) => {
+    // ignore the click that just brought the window back into focus, and require aiming
+    if (!document.hasFocus() || !canShoot()) return;
+    dragStart = pos(e);
+  });
   window.addEventListener('pointermove', (e) => {
     if (!dragStart) return;
     const p = pos(e);
@@ -147,9 +259,7 @@ function setupInput() {
       else doShoot(dx, dy, power);
     }
     dragStart = null;
-    aimLine.clear();
-    powerBar.clear();
-    powerLabel.visible = false;
+    aimLine.clear(); powerBar.clear(); powerLabel.visible = false;
   });
 }
 
@@ -159,28 +269,36 @@ function closeNet() {
 }
 
 function onMessage(m) {
-  if (m.type === 'start' && game.mode === 'guest') { setupRack(); game.started = true; ui.enterGame(); ui.updateTurn(game.mode, game.turn === game.myPlayer); }
-  else if (m.type === 'state' && game.mode === 'guest') applyState(m);
-  else if (m.type === 'shoot' && game.mode === 'host' && game.turn === 2) doShoot(m.dx, m.dy, m.power);
+  if (m.type === 'start' && game.mode === 'guest') {
+    setupRack();
+    game.groups = m.groups; game.turn = m.turn; game.started = true; game.gameOver = false;
+    ui.enterGame();
+    maybeAskNotifications().then(announceGroupAndTurn);
+  } else if (m.type === 'state' && game.mode === 'guest') applyState(m);
+  else if (m.type === 'shoot' && game.mode === 'host' && game.turn === 2 && !game.gameOver) doShoot(m.dx, m.dy, m.power);
 }
 
 function startHost() {
   closeNet();
   game.mode = 'host'; game.myPlayer = 1;
-  ui.setStatus('host-status', 'Creando sala…');
   ui.el('host-code').textContent = '····';
   game.net = host({
-    ready: (code) => { ui.el('host-code').textContent = code; ui.setStatus('host-status', 'Esperando al jugador 2…'); },
+    ready: (code) => { ui.el('host-code').textContent = code; },
     joined: () => {
-      setupRack(); game.turn = 1; game.started = true;
-      ui.toast('El jugador 2 se ha unido a la partida');
-      ui.enterGame(); ui.updateTurn('host', true);
-      game.net.send({ type: 'start' });
+      setupRack();
+      const p1 = Math.random() < 0.5 ? 'solids' : 'stripes';
+      game.groups = { 1: p1, 2: p1 === 'solids' ? 'stripes' : 'solids' };
+      game.turn = 1; game.started = true;
+      audio.notify();
+      ui.toast('El rival se ha unido a la partida');
+      ui.enterGame();
+      game.net.send({ type: 'start', groups: game.groups, turn: game.turn });
       sendState();
+      maybeAskNotifications().then(announceGroupAndTurn);
     },
     message: onMessage,
     left: () => ui.toast('El otro jugador se ha desconectado'),
-    error: () => ui.setStatus('host-status', 'Error creando la sala. Vuelve a intentarlo.', true),
+    error: () => { /* host id taken — rare; user can re-open */ },
   });
 }
 
@@ -193,36 +311,46 @@ function startJoin() {
   game.net = join(code, {
     connected: () => ui.setStatus('join-status', 'Conectado. Esperando al anfitrión…'),
     message: onMessage,
-    left: () => { ui.setStatus('join-status', 'Conexión cerrada.', true); },
-    error: () => ui.setStatus('join-status', 'No se encontró la sala. Revisa el código.', true),
+    left: () => ui.setStatus('join-status', 'Conexión cerrada.', true),
+    error: () => ui.setStatus('join-status', 'No se ha encontrado la sala o el código es incorrecto.', true),
   });
 }
 
 function wireMenu() {
-  ui.el('btn-play').onclick = () => ui.showScreen('screen-mode');
-  ui.el('btn-settings').onclick = () => {
-    const s = ui.el('settings');
-    s.style.display = s.style.display === 'none' ? 'block' : 'none';
-  };
-  ui.el('btn-quit').onclick = () => window.close();
-  document.querySelectorAll('[data-back]').forEach((b) => {
-    b.onclick = () => { closeNet(); ui.showScreen(b.dataset.back); };
-  });
+  const click = (id, fn) => { ui.el(id).onclick = () => { audio.resume(); audio.uiClick(); fn(); }; };
 
-  ui.el('btn-solo').onclick = () => { closeNet(); game.mode = 'solo'; setupRack(); ui.enterGame(); ui.updateTurn('solo'); };
-  ui.el('btn-multi').onclick = () => ui.showScreen('screen-mp');
-  ui.el('btn-create').onclick = () => { ui.showScreen('screen-host'); startHost(); };
-  ui.el('btn-join').onclick = () => { ui.setStatus('join-status', ''); ui.showScreen('screen-join'); };
-  ui.el('btn-connect').onclick = startJoin;
-  ui.el('btn-copy').onclick = () => navigator.clipboard?.writeText(ui.el('host-code').textContent);
+  click('btn-play', () => ui.showScreen('screen-mode'));
+  click('btn-settings', () => { const s = ui.el('settings'); s.style.display = s.style.display === 'none' ? 'block' : 'none'; });
+  click('btn-quit', () => window.close());
+  document.querySelectorAll('[data-back]').forEach((b) => { b.onclick = () => { audio.uiClick(); closeNet(); ui.showScreen(b.dataset.back); }; });
 
-  ui.el('btn-restart').onclick = () => {
+  click('btn-solo', () => { closeNet(); game.mode = 'solo'; setupRack(); ui.enterGame(); ui.updateTurn('solo'); });
+  click('btn-multi', () => ui.showScreen('screen-mp'));
+  click('btn-create', () => { ui.showScreen('screen-host'); startHost(); });
+  click('btn-join', () => { ui.setStatus('join-status', ''); ui.showScreen('screen-join'); });
+  click('btn-connect', startJoin);
+
+  ui.el('btn-mute').onclick = () => { audio.setMuted(!audio.isMuted()); ui.setMuteIcon(audio.isMuted()); audio.uiClick(); };
+  ui.el('btn-restart').onclick = async () => {
+    audio.uiClick();
     if (game.mode === 'guest') return;
+    const ok = await ui.askRestart();
+    if (!ok) return;
     setupRack();
-    if (game.mode === 'host') { game.turn = 1; ui.updateTurn('host', true); sendState(); }
+    if (game.mode === 'host') {
+      const p1 = Math.random() < 0.5 ? 'solids' : 'stripes';
+      game.groups = { 1: p1, 2: p1 === 'solids' ? 'stripes' : 'solids' };
+      game.turn = 1;
+      game.net.send({ type: 'start', groups: game.groups, turn: game.turn });
+      sendState();
+      announceGroupAndTurn();
+    }
     ui.showHint();
   };
-  ui.el('btn-menu').onclick = () => { closeNet(); game.mode = 'solo'; ui.backToMenu(); };
+  ui.el('btn-menu').onclick = () => { audio.uiClick(); closeNet(); game.mode = 'solo'; ui.backToMenu(); };
+
+  // subtle hover blips on menu buttons
+  document.querySelectorAll('.glass').forEach((b) => b.addEventListener('pointerenter', () => audio.uiHover()));
 }
 
 main();

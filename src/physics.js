@@ -50,9 +50,11 @@ export function allStopped(balls) {
   return balls.every((b) => b.potted || (b.vx === 0 && b.vy === 0));
 }
 
-// Advance the world one 60fps frame. Returns the list of balls potted THIS frame.
+// Advance the world one 60fps frame.
+// Returns { potted: [balls sunk this frame], hits: [{type:'ball'|'rail', speed}] } for sound.
 export function step(balls) {
   const active = balls.filter((b) => !b.potted);
+  const hits = [];
 
   // sub-step so fast balls can't tunnel through each other or the rails
   let maxSpeed = 0;
@@ -61,8 +63,8 @@ export function step(balls) {
 
   for (let s = 0; s < sub; s++) {
     for (const b of active) { b.x += b.vx / sub; b.y += b.vy / sub; }
-    bounceWalls(active);
-    collideBalls(active);
+    bounceWalls(active, hits);
+    collideBalls(active, hits);
   }
 
   // friction applied once per frame (not per sub-step, or balls would over-brake)
@@ -71,19 +73,21 @@ export function step(balls) {
     if (Math.hypot(b.vx, b.vy) < STOP_SPEED) { b.vx = 0; b.vy = 0; }
   }
 
-  return sinkPockets(balls);
+  return { potted: sinkPockets(balls), hits };
 }
 
-function bounceWalls(active) {
+function bounceWalls(active, hits) {
   for (const b of active) {
-    if (b.x < MIN_X) { b.x = MIN_X; b.vx = Math.abs(b.vx) * WALL_RESTITUTION; }
-    else if (b.x > MAX_X) { b.x = MAX_X; b.vx = -Math.abs(b.vx) * WALL_RESTITUTION; }
-    if (b.y < MIN_Y) { b.y = MIN_Y; b.vy = Math.abs(b.vy) * WALL_RESTITUTION; }
-    else if (b.y > MAX_Y) { b.y = MAX_Y; b.vy = -Math.abs(b.vy) * WALL_RESTITUTION; }
+    let hit = 0;
+    if (b.x < MIN_X) { b.x = MIN_X; hit = Math.abs(b.vx); b.vx = Math.abs(b.vx) * WALL_RESTITUTION; }
+    else if (b.x > MAX_X) { b.x = MAX_X; hit = Math.abs(b.vx); b.vx = -Math.abs(b.vx) * WALL_RESTITUTION; }
+    if (b.y < MIN_Y) { b.y = MIN_Y; hit = Math.max(hit, Math.abs(b.vy)); b.vy = Math.abs(b.vy) * WALL_RESTITUTION; }
+    else if (b.y > MAX_Y) { b.y = MAX_Y; hit = Math.max(hit, Math.abs(b.vy)); b.vy = -Math.abs(b.vy) * WALL_RESTITUTION; }
+    if (hit > 1.5) hits.push({ type: 'rail', speed: hit });
   }
 }
 
-function collideBalls(active) {
+function collideBalls(active, hits) {
   const minDist = BALL_R * 2;
   for (let i = 0; i < active.length; i++) {
     for (let j = i + 1; j < active.length; j++) {
@@ -107,6 +111,7 @@ function collideBalls(active) {
       const jimp = (1 + BALL_RESTITUTION) / 2 * rvn;
       a.vx -= jimp * nx; a.vy -= jimp * ny;
       b.vx += jimp * nx; b.vy += jimp * ny;
+      if (rvn > 1.5) hits.push({ type: 'ball', speed: rvn });
     }
   }
 }

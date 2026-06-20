@@ -5,37 +5,53 @@ import { pocketPositions } from './physics.js';
 
 export function drawTable() {
   const g = new Graphics();
+
+  // outer wooden frame with warm gradient + top bevel highlight
   const wood = new FillGradient({
     type: 'linear', start: { x: 0, y: 0 }, end: { x: 0, y: 1 },
-    colorStops: [{ offset: 0, color: 0x6b4a2b }, { offset: 0.5, color: 0x4a3019 }, { offset: 1, color: 0x32200f }],
+    colorStops: [{ offset: 0, color: 0x8a5a30 }, { offset: 0.5, color: 0x5c3b1d }, { offset: 1, color: 0x36230f }],
     textureSpace: 'local',
   });
-  g.roundRect(0, 0, CANVAS_W, CANVAS_H, 14).fill(wood);
+  g.roundRect(0, 0, CANVAS_W, CANVAS_H, 16).fill(wood);
+  g.roundRect(3, 3, CANVAS_W - 6, CANVAS_H - 6, 13).stroke({ width: 2, color: 0xffe2b0, alpha: 0.18 });
 
+  // cushion frame (darker inner border ring around the cloth)
+  g.rect(CUSHION - 8, CUSHION - 8, TABLE_W + 16, TABLE_H + 16).fill(0x1b6e3a);
+
+  // cloth with a soft lit centre
   const cloth = new FillGradient({
     type: 'radial',
-    innerCenter: { x: 0.5, y: 0.5 }, innerRadius: 0.05,
-    outerCenter: { x: 0.5, y: 0.5 }, outerRadius: 0.62,
-    colorStops: [{ offset: 0, color: 0x1ba14a }, { offset: 1, color: 0x0c6630 }],
+    innerCenter: { x: 0.5, y: 0.42 }, innerRadius: 0.04,
+    outerCenter: { x: 0.5, y: 0.5 }, outerRadius: 0.66,
+    colorStops: [{ offset: 0, color: 0x24c55c }, { offset: 0.7, color: 0x12953f }, { offset: 1, color: 0x0a6b2c }],
     textureSpace: 'local',
   });
   g.rect(CUSHION, CUSHION, TABLE_W, TABLE_H).fill(cloth);
-  g.rect(CUSHION, CUSHION, TABLE_W, TABLE_H).stroke({ width: 4, color: 0x000000, alpha: 0.22 });
+  // inner shadow cast by the rails onto the cloth
+  g.rect(CUSHION, CUSHION, TABLE_W, TABLE_H).stroke({ width: 8, color: 0x000000, alpha: 0.18 });
+  g.rect(CUSHION + 2, CUSHION + 2, TABLE_W - 4, TABLE_H - 4).stroke({ width: 2, color: 0x000000, alpha: 0.12 });
 
+  // diamond sights
   const dots = [];
   for (const f of [0.25, 0.5, 0.75]) {
     dots.push([CUSHION + TABLE_W * f, CUSHION / 2], [CUSHION + TABLE_W * f, CANVAS_H - CUSHION / 2]);
   }
   dots.push([CUSHION / 2, CUSHION + TABLE_H / 2], [CANVAS_W - CUSHION / 2, CUSHION + TABLE_H / 2]);
   for (const [x, y] of dots) {
-    g.circle(x, y, 3.5).fill(0xf2e8cf);
-    g.circle(x, y, 3.5).stroke({ width: 1, color: 0x000000, alpha: 0.3 });
+    g.circle(x, y, 3.5).fill(0xfff0cf);
+    g.circle(x, y, 3.5).stroke({ width: 1, color: 0x4a3a1f, alpha: 0.5 });
   }
 
+  // pockets: brass ring + recessed dark hole
   for (const p of pocketPositions()) {
-    g.circle(p.x, p.y, POCKET_R + 4).fill({ color: 0x000000, alpha: 0.35 });
-    g.circle(p.x, p.y, POCKET_R).fill(0x080808);
-    g.circle(p.x, p.y, POCKET_R).stroke({ width: 2, color: 0x2a2a2a, alpha: 0.8 });
+    g.circle(p.x, p.y, POCKET_R + 6).fill({ color: 0x000000, alpha: 0.4 });
+    g.circle(p.x, p.y, POCKET_R + 3).fill(0x4a3a1f);
+    g.circle(p.x, p.y, POCKET_R + 3).stroke({ width: 2, color: 0xd9b15a, alpha: 0.7 });
+    const hole = new FillGradient({
+      type: 'radial', innerCenter: { x: 0.5, y: 0.4 }, innerRadius: 0, outerCenter: { x: 0.5, y: 0.5 }, outerRadius: 0.5,
+      colorStops: [{ offset: 0, color: 0x101010 }, { offset: 1, color: 0x000000 }], textureSpace: 'local',
+    });
+    g.circle(p.x, p.y, POCKET_R).fill(hole);
   }
   return g;
 }
@@ -78,8 +94,12 @@ export function buildBallVisual(ball) {
     textureSpace: 'local',
   });
   c.addChild(new Graphics().circle(0, 0, BALL_R).fill(shade));
-  c.addChild(new Graphics().ellipse(-BALL_R * 0.34, -BALL_R * 0.38, BALL_R * 0.4, BALL_R * 0.28).fill({ color: 0xffffff, alpha: 0.65 }));
-  c.addChild(new Graphics().circle(-BALL_R * 0.4, -BALL_R * 0.44, BALL_R * 0.12).fill({ color: 0xffffff, alpha: 0.9 }));
+  // bounced-light rim along the bottom edge (makes it read as a sphere)
+  c.addChild(new Graphics().ellipse(BALL_R * 0.18, BALL_R * 0.5, BALL_R * 0.55, BALL_R * 0.22).fill({ color: 0xffffff, alpha: 0.12 }));
+  // soft + sharp specular highlights (top-left light)
+  c.addChild(new Graphics().ellipse(-BALL_R * 0.32, -BALL_R * 0.36, BALL_R * 0.46, BALL_R * 0.34).fill({ color: 0xffffff, alpha: 0.55 }));
+  c.addChild(new Graphics().circle(-BALL_R * 0.4, -BALL_R * 0.44, BALL_R * 0.13).fill({ color: 0xffffff, alpha: 0.95 }));
+  c.addChild(new Graphics().circle(0, 0, BALL_R).stroke({ width: 1, color: 0x000000, alpha: 0.22 }));
   return c;
 }
 
