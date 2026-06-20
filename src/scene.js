@@ -61,42 +61,40 @@ function faceGraphics(number, color) {
   const g = new Container();
   const isCue = number === 0;
   const isStripe = number >= 9;
-  g.addChild(new Graphics().circle(0, 0, BALL_R).fill(isCue ? 0xffffff : isStripe ? 0xfdfdfd : color));
+  g.addChild(new Graphics().circle(0, 0, BALL_R).fill(isCue || isStripe ? 0xffffff : color));
   if (isStripe) {
-    const band = new Graphics().rect(-BALL_R, -BALL_R * 0.52, BALL_R * 2, BALL_R * 1.04).fill(color);
+    const band = new Graphics().rect(-BALL_R, -BALL_R * 0.5, BALL_R * 2, BALL_R).fill(color);
     const mask = new Graphics().circle(0, 0, BALL_R).fill(0xffffff);
     g.addChild(band, mask);
     band.mask = mask;
   }
   if (!isCue) {
-    g.addChild(new Graphics().circle(0, 0, BALL_R * 0.5).fill(0xffffff));
-    g.addChild(new Graphics().circle(0, 0, BALL_R * 0.5).stroke({ width: 0.6, color: 0x000000, alpha: 0.15 }));
-    const t = new Text({ text: String(number), style: { fontFamily: 'Arial, sans-serif', fontSize: 9, fontWeight: 'bold', fill: 0x141414 } });
+    g.addChild(new Graphics().circle(0, 0, BALL_R * 0.48).fill(0xfbf7ec));
+    const t = new Text({ text: String(number), style: { fontFamily: 'Arial, sans-serif', fontSize: 9, fontWeight: 'bold', fill: 0x111111 } });
     t.anchor.set(0.5);
     g.addChild(t);
   }
   return g;
 }
 
-// The fixed shading/highlights drawn on top (does NOT spin — light stays put).
-function overlayGraphics(isCue) {
+// The fixed shading drawn on top (does NOT spin). Dark, uniform — no ball stands out.
+function overlayGraphics() {
   const g = new Container();
   const shade = new FillGradient({
     type: 'radial',
-    innerCenter: { x: 0.36, y: 0.32 }, innerRadius: 0.08,
-    outerCenter: { x: 0.5, y: 0.5 }, outerRadius: 0.54,
+    innerCenter: { x: 0.38, y: 0.34 }, innerRadius: 0.1,
+    outerCenter: { x: 0.5, y: 0.5 }, outerRadius: 0.52,
     colorStops: [
-      { offset: 0, color: 'rgba(255,255,255,0.10)' },
-      { offset: 0.55, color: 'rgba(0,0,0,0)' },
-      { offset: 1, color: `rgba(0,0,0,${isCue ? 0.28 : 0.36})` },
+      { offset: 0, color: 'rgba(0,0,0,0)' },
+      { offset: 0.65, color: 'rgba(0,0,0,0)' },
+      { offset: 1, color: 'rgba(0,0,0,0.5)' },
     ],
     textureSpace: 'local',
   });
   g.addChild(new Graphics().circle(0, 0, BALL_R).fill(shade));
-  g.addChild(new Graphics().ellipse(BALL_R * 0.16, BALL_R * 0.52, BALL_R * 0.58, BALL_R * 0.22).fill({ color: 0xffffff, alpha: 0.14 }));
-  g.addChild(new Graphics().ellipse(-BALL_R * 0.32, -BALL_R * 0.36, BALL_R * 0.5, BALL_R * 0.36).fill({ color: 0xffffff, alpha: 0.6 }));
-  g.addChild(new Graphics().circle(-BALL_R * 0.4, -BALL_R * 0.44, BALL_R * 0.15).fill({ color: 0xffffff, alpha: 1 }));
-  g.addChild(new Graphics().circle(0, 0, BALL_R).stroke({ width: 1, color: isCue ? 0xcfe0d0 : 0x000000, alpha: isCue ? 0.5 : 0.2 }));
+  g.addChild(new Graphics().ellipse(-BALL_R * 0.34, -BALL_R * 0.38, BALL_R * 0.4, BALL_R * 0.28).fill({ color: 0xffffff, alpha: 0.45 }));
+  g.addChild(new Graphics().circle(-BALL_R * 0.4, -BALL_R * 0.44, BALL_R * 0.12).fill({ color: 0xffffff, alpha: 0.7 }));
+  g.addChild(new Graphics().circle(0, 0, BALL_R).stroke({ width: 1, color: 0x000000, alpha: 0.25 }));
   return g;
 }
 
@@ -113,28 +111,20 @@ export function initBallTextures(renderer) {
   const R = BALL_R + 2;
   const faces = new Map();
   for (let n = 0; n <= 15; n++) faces.set(n, bake(faceGraphics(n, BALL_COLORS[n]), R));
-  const shadow = new Graphics().ellipse(0, 0, BALL_R * 1.05, BALL_R * 0.9).fill({ color: 0x000000, alpha: 0.28 });
-  const halo = new Graphics().circle(0, 0, BALL_R + 2.5).fill({ color: 0xffffff, alpha: 0.18 });
+  const shadow = new Graphics().ellipse(0, 0, BALL_R * 1.05, BALL_R * 0.9).fill({ color: 0x000000, alpha: 0.3 });
   TEX = {
     faces,
-    overlayNormal: bake(overlayGraphics(false), R),
-    overlayCue: bake(overlayGraphics(true), R),
+    overlay: bake(overlayGraphics(), R),
     shadow: bake(shadow, BALL_R + 4),
-    halo: bake(halo, BALL_R + 4),
   };
 }
 
 export function buildBallVisual(ball) {
   const c = new Container();
-  const isCue = ball.number === 0;
-
   const shadow = new Sprite(TEX.shadow); shadow.anchor.set(0.5); shadow.position.set(2.5, 3.5);
-  c.addChild(shadow);
-  if (isCue) { const halo = new Sprite(TEX.halo); halo.anchor.set(0.5); c.addChild(halo); }
-
   const face = new Sprite(TEX.faces.get(ball.number)); face.anchor.set(0.5);
-  const overlay = new Sprite(isCue ? TEX.overlayCue : TEX.overlayNormal); overlay.anchor.set(0.5);
-  c.addChild(face, overlay);
+  const overlay = new Sprite(TEX.overlay); overlay.anchor.set(0.5);
+  c.addChild(shadow, face, overlay);
   c.spin = face; // only the painted face rotates
   return c;
 }
