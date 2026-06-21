@@ -1,5 +1,5 @@
 import { Application, Container, Graphics, Text } from 'pixi.js';
-import { CANVAS_W, CANVAS_H, BALL_R, MAX_DRAG, MIN_DRAG, POWER_CURVE } from './config.js';
+import { CANVAS_W, CANVAS_H, MAX_DRAG, MIN_DRAG, POWER_CURVE } from './config.js';
 import { rack, step, allStopped, shoot, respawnCue } from './physics.js';
 import { drawTable, buildBallVisual, drawAim, drawPower, initBallTextures } from './scene.js';
 import { host, join } from './net.js';
@@ -288,10 +288,8 @@ function setupInput() {
   };
   app.canvas.addEventListener('pointerdown', (e) => {
     if (!document.hasFocus() || !canShoot()) return; // ignore clicks that just refocus the window
-    const p = pos(e);
-    // you must grab the cue ball itself and drag — clicking elsewhere does nothing
-    if (Math.hypot(p.x - game.cue.x, p.y - game.cue.y) > BALL_R * 3) return;
-    dragStart = p;
+    // grab anywhere on the table and drag to aim — a plain click still won't shoot (see pointerup)
+    dragStart = pos(e);
   });
   window.addEventListener('pointermove', (e) => {
     if (!dragStart) return;
