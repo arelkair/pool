@@ -29,7 +29,7 @@ const STR = {
   },
   en: {
     play: 'Play', settings: 'Settings', quit: 'Quit',
-    solo: 'Single player', multiplayer: 'Multiplayer', back: 'Back',
+    solo: 'Singleplayer', multiplayer: 'Multiplayer', back: 'Back',
     create: 'Create game', join: 'Join game', connect: 'Connect',
     restart: 'Restart', menu: 'Menu',
     language: 'Language', spanish: 'Spanish', english: 'English',
@@ -56,7 +56,7 @@ const STR = {
   },
 };
 
-let lang = localStorage.getItem('pool-lang') || 'es';
+let lang = localStorage.getItem('pool-lang') || 'en';
 
 export function getLang() { return lang; }
 export function t(key) { return (STR[lang] && STR[lang][key]) || STR.es[key] || key; }
