@@ -5,6 +5,7 @@ import { drawTable, buildBallVisual, drawAim, drawPower, initBallTextures } from
 import { host, join } from './net.js';
 import * as ui from './ui.js';
 import * as audio from './audio.js';
+import { t, setLang, getLang, applyStatic } from './i18n.js';
 
 const groupOf = (n) => (n === 0 ? 'cue' : n === 8 ? 'eight' : n <= 7 ? 'solids' : 'stripes');
 const other = (p) => (p === 1 ? 2 : 1);
@@ -39,6 +40,10 @@ async function main() {
   app.stage.addChild(aimLine, powerBar, powerLabel);
 
   initBallTextures(app.renderer);
+  applyStatic();
+  ui.el('lang-select').value = getLang();
+  ui.el('lang-select').onchange = (e) => { setLang(e.target.value); refreshHud(); ui.updateTurn(game.mode, game.turn === game.myPlayer); };
+
   setupRack();
   setupInput();
 
@@ -87,14 +92,19 @@ function physicsFrame() {
 }
 
 function renderFrame() {
+  const guest = game.mode === 'guest';
   for (const [ball, spr] of game.sprites) {
     spr.visible = !ball.potted;
     if (ball.potted) continue;
-    spr.position.set(ball.x, ball.y);
-    if (game.mode !== 'guest') {
+    if (guest) {
+      // smoothly interpolate toward the last received position so motion looks 60fps-fluid
+      ball.x += ((ball.tx ?? ball.x) - ball.x) * 0.35;
+      ball.y += ((ball.ty ?? ball.y) - ball.y) * 0.35;
+    } else {
       const sp = Math.hypot(ball.vx, ball.vy);
       spr.spin.rotation += (ball.vx >= 0 ? 1 : -1) * sp * 0.04;
     }
+    spr.position.set(ball.x, ball.y);
   }
 }
 
@@ -110,6 +120,7 @@ function setupRack() {
     game.byNumber.set(b.number, { ball: b, spr: v });
     ballLayer.addChild(v);
   }
+  for (const b of game.balls) { b.tx = b.x; b.ty = b.y; }
   game.shots = 0; game.shooting = false; game.shotPotted = []; game.cueFoul = false;
   game.gameOver = false; game.winner = null;
   refreshHud();
@@ -179,21 +190,21 @@ function endGame(winner) {
 
 function showEndBanner() {
   const won = game.winner === game.myPlayer;
-  ui.banner(won ? 'Has ganado.' : 'Has perdido.');
+  ui.banner(won ? t('won') : t('lost'));
   won ? audio.win() : audio.lose();
 }
 
 function announceTurn() {
   ui.updateTurn(game.mode, game.turn === game.myPlayer);
-  queueBanner(game.turn === game.myPlayer ? 'Es tu turno.' : 'Es el turno del rival.');
+  queueBanner(game.turn === game.myPlayer ? t('yourTurn') : t('rivalTurn'));
   if (game.turn === game.myPlayer) audio.turnChime();
   maybeNotifyTurn();
 }
 
 function announceGroupAndTurn() {
   const mg = game.groups[game.myPlayer];
-  queueBanner(mg === 'stripes' ? 'Tienes que meter todas las bolas rayadas.' : 'Tienes que meter todas las bolas lisas.');
-  queueBanner(game.turn === game.myPlayer ? 'Es tu turno.' : 'Es el turno del rival.');
+  queueBanner(mg === 'stripes' ? t('mustStripes') : t('mustSolids'));
+  queueBanner(game.turn === game.myPlayer ? t('yourTurn') : t('rivalTurn'));
   ui.updateTurn(game.mode, game.turn === game.myPlayer);
   if (game.turn === game.myPlayer) { audio.turnChime(); maybeNotifyTurn(); }
   refreshHud();
@@ -212,7 +223,7 @@ function maybeNotifyTurn() {
   if (game.mode === 'solo' || game.turn !== game.myPlayer || !document.hidden) return;
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
   try {
-    new Notification('Pool', { body: 'Hey, no te despistes, que es tu turno.', tag: 'pool-turn', renotify: true });
+    new Notification('Pool', { body: t('notifTurnBody'), tag: 'pool-turn', renotify: true });
   } catch { /* ignore */ }
 }
 
@@ -227,7 +238,7 @@ function maybeAskNotifications() {
       close();
       try {
         const perm = await Notification.requestPermission();
-        if (perm === 'granted') { audio.notify(); ui.toast('Se han habilitado las notificaciones del sistema.'); }
+        if (perm === 'granted') { audio.notify(); ui.toast(t('notifEnabled')); }
       } catch { /* ignore */ }
       resolve();
     };
@@ -252,7 +263,7 @@ function applyState(m) {
   for (const bs of m.balls) {
     const e = game.byNumber.get(bs.n);
     if (!e) continue;
-    e.ball.x = bs.x; e.ball.y = bs.y; e.ball.potted = bs.p; e.spr.spin.rotation = bs.r;
+    e.ball.tx = bs.x; e.ball.ty = bs.y; e.ball.potted = bs.p; e.spr.spin.rotation = bs.r;
   }
   if (m.sfx && !document.hidden) {
     if (m.sfx.b > 0) audio.ballHit(m.sfx.b);
@@ -262,7 +273,7 @@ function applyState(m) {
   refreshHud();
   ui.updateTurn(game.mode, game.turn === game.myPlayer);
   if (m.turn !== prevTurn) {
-    queueBanner(game.turn === game.myPlayer ? 'Es tu turno.' : 'Es el turno del rival.');
+    queueBanner(game.turn === game.myPlayer ? t('yourTurn') : t('rivalTurn'));
     if (game.turn === game.myPlayer) audio.turnChime();
     maybeNotifyTurn();
   }
@@ -317,7 +328,7 @@ function leaveGame() {
   game.mode = 'solo';
   stopBanners();
   ui.backToMenu();
-  if (wasMulti) ui.toast('Te has salido de la partida.');
+  if (wasMulti) ui.toast(t('youLeft'));
 }
 
 function onMessage(m) {
@@ -347,29 +358,29 @@ function startHost() {
       newMatchGroups();
       game.started = true;
       audio.notify();
-      ui.toast('El rival se ha unido a la partida');
+      ui.toast(t('rivalJoined'));
       ui.enterGame();
       game.net.send({ type: 'start', groups: game.groups, turn: game.turn });
       sendState();
       maybeAskNotifications().then(announceGroupAndTurn);
     },
     message: onMessage,
-    left: () => ui.toast('El otro jugador se ha desconectado'),
+    left: () => ui.toast(t('rivalLeft')),
     error: () => { /* host id taken — rare; user can re-open */ },
   });
 }
 
 function startJoin() {
   const code = ui.el('join-code').value.trim().toUpperCase();
-  if (code.length < 4) { ui.setStatus('join-status', 'Escribe el código de 4 letras.', true); return; }
+  if (code.length < 4) { ui.setStatus('join-status', t('code4'), true); return; }
   closeNet();
   game.mode = 'guest'; game.myPlayer = 2;
-  ui.setStatus('join-status', 'Conectando…');
+  ui.setStatus('join-status', t('connecting'));
   game.net = join(code, {
-    connected: () => ui.setStatus('join-status', 'Conectado. Esperando al anfitrión…'),
+    connected: () => ui.setStatus('join-status', t('waitingHost')),
     message: onMessage,
-    left: () => ui.setStatus('join-status', 'Conexión cerrada.', true),
-    error: () => ui.setStatus('join-status', 'No se ha encontrado la sala o el código es incorrecto.', true),
+    left: () => ui.setStatus('join-status', t('closed'), true),
+    error: () => ui.setStatus('join-status', t('notFound'), true),
   });
 }
 
@@ -377,7 +388,7 @@ function wireMenu() {
   const click = (id, fn) => { ui.el(id).onclick = () => { audio.resume(); audio.uiClick(); fn(); }; };
 
   click('btn-play', () => ui.showScreen('screen-mode'));
-  click('btn-settings', () => { const s = ui.el('settings'); s.style.display = s.style.display === 'none' ? 'block' : 'none'; });
+  click('btn-settings', () => { const s = ui.el('settings'); s.style.display = s.style.display === 'none' ? 'flex' : 'none'; });
   click('btn-quit', () => window.close());
   document.querySelectorAll('[data-back]').forEach((b) => { b.onclick = () => { audio.uiClick(); closeNet(); ui.showScreen(b.dataset.back); }; });
 
@@ -391,7 +402,7 @@ function wireMenu() {
   ui.el('btn-restart').onclick = async () => {
     audio.resume(); audio.uiClick();
     if (game.mode === 'guest') return;
-    const ok = await ui.confirm('¿Estás seguro de que quieres reiniciar la partida?');
+    const ok = await ui.confirm(t('confirmRestart'));
     if (!ok) return;
     setupRack();
     stopBanners();
@@ -405,7 +416,7 @@ function wireMenu() {
   };
   ui.el('btn-menu').onclick = async () => {
     audio.resume(); audio.uiClick();
-    const ok = await ui.confirm('¿Estás seguro de que quieres salir?');
+    const ok = await ui.confirm(t('confirmExit'));
     if (!ok) return;
     leaveGame();
   };

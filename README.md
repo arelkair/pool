@@ -1,33 +1,33 @@
 # Pool
 
-Juego de billar 2D para navegador. Física propia, gráficos realistas y multijugador 1v1 por internet.
+A 2D pool game for the browser, with online 1v1 multiplayer.
 
-🎱 **Jugar:** https://pool-arelkair.vercel.app
+Play: https://pool-arelkair.vercel.app
 
-## Cómo se juega
+## How to play
 
-- **Solo:** práctica libre.
-- **Multijugador:** un jugador pulsa *Crear partida* y comparte el **código de 4 letras**; el otro pulsa *Unirse a partida* y lo escribe. Funciona por internet (P2P vía WebRTC), sin servidores ni configurar el router. Se juega por turnos: si embocas, repites; si no, pasa el turno.
+- Single player: free practice.
+- Multiplayer: one player creates a game and shares the 4-letter code; the other
+  joins with that code. It runs peer-to-peer over the internet, with no servers or
+  router setup. Turns follow standard 8-ball rules.
 
-Para tirar: arrastra desde la bola blanca y suelta. Cuanto más estiras, más fuerza.
+To shoot, drag from the cue ball and release. The further you pull, the more power.
 
-## Estructura
+Available in English and Spanish (Settings > Language).
 
-```
-src/
-  config.js    constantes (mesa, bolas, parámetros de física)
-  physics.js   motor de billar propio (colisiones, fricción, troneras) + self-test
-  scene.js     render con PixiJS (mesa, bolas, apuntado)
-  net.js       multijugador P2P con PeerJS (salas por código)
-  ui.js        menú, HUD y avisos (DOM)
-  main.js      bucle de juego, controles y turnos
-```
+## Project structure
 
-## Desarrollo
+    src/config.js     constants (table, balls, physics)
+    src/physics.js    custom billiards engine (collisions, friction, pockets)
+    src/scene.js      PixiJS rendering
+    src/net.js        peer-to-peer multiplayer (PeerJS)
+    src/ui.js         menu, HUD and dialogs
+    src/i18n.js       translations
+    src/main.js       game loop, input and turns
 
-```bash
-npm install
-npm run dev      # servidor de desarrollo
-npm test         # self-test de la física
-npm run build    # build de producción (dist/)
-```
+## Development
+
+    npm install
+    npm run dev      start the dev server
+    npm test         run the physics self-test
+    npm run build    production build

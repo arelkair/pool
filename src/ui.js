@@ -1,4 +1,6 @@
 // DOM helpers for the menu, HUD, toast, big banner and modal dialogs. No game logic.
+import { t } from './i18n.js';
+
 export const el = (id) => document.getElementById(id);
 
 export function showScreen(id) {
@@ -43,11 +45,11 @@ export function updateHud(shots, potted, total) {
 }
 
 export function updateTurn(mode, mine) {
-  const t = el('hud-turn');
-  if (mode === 'solo') { t.style.display = 'none'; return; }
-  t.style.display = '';
-  t.textContent = mine ? 'Tú' : 'Rival';
-  t.style.background = mine ? 'rgba(70,220,140,.28)' : 'rgba(220,90,90,.28)';
+  const e = el('hud-turn');
+  if (mode === 'solo') { e.style.display = 'none'; return; }
+  e.style.display = '';
+  e.textContent = mine ? t('you') : t('rival');
+  e.style.background = mine ? 'rgba(70,220,140,.28)' : 'rgba(220,90,90,.28)';
 }
 
 // persistent badge showing which group is yours: 'solids' | 'stripes' | null
@@ -55,7 +57,7 @@ export function updateGroup(mode, group) {
   const g = el('hud-group');
   if (mode === 'solo' || !group) { g.style.display = 'none'; return; }
   g.style.display = '';
-  g.textContent = group === 'stripes' ? 'Rayadas' : 'Lisas';
+  g.textContent = group === 'stripes' ? t('stripes') : t('solids');
 }
 
 export function setStatus(id, text, error = false) {
