@@ -338,9 +338,10 @@ function setupInput() {
   window.addEventListener('pointermove', (e) => {
     if (!dragStart) return;
     const p = pos(e);
-    drawAim(aimLine, game.cue, p.x, p.y);
     const frac = Math.min(Math.hypot(game.cue.x - p.x, game.cue.y - p.y), MAX_DRAG) / MAX_DRAG;
-    drawPower(powerBar, powerLabel, Math.pow(frac, POWER_CURVE));
+    const power = Math.pow(frac, POWER_CURVE);
+    drawAim(aimLine, game.cue, p.x, p.y, power);
+    drawPower(powerBar, powerLabel, power);
   });
   window.addEventListener('pointerup', (e) => {
     if (!dragStart) return;

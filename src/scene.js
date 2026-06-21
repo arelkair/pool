@@ -129,15 +129,15 @@ export function buildBallVisual(ball) {
   return c;
 }
 
-// Predicted path: a straight shot line that reflects off the rails so the
-// player can see roughly where the cue ball would travel.
-export function drawAim(g, cue, mx, my) {
+// Predicted path: a faint line that reflects off the rails, scaled to how
+// far the cue ball would actually travel at the current power.
+export function drawAim(g, cue, mx, my, power = 1) {
   g.clear();
-  g.moveTo(cue.x, cue.y).lineTo(mx, my).stroke({ width: 2, color: 0xffffff, alpha: 0.5 });
+  g.moveTo(cue.x, cue.y).lineTo(mx, my).stroke({ width: 1, color: 0xffffff, alpha: 0.25 });
 
   const len = Math.hypot(cue.x - mx, cue.y - my) || 1;
   let dx = (cue.x - mx) / len, dy = (cue.y - my) / len;
-  let x = cue.x, y = cue.y, remaining = 700;
+  let x = cue.x, y = cue.y, remaining = 50 + power * 260;
   const minX = CUSHION + BALL_R, maxX = CUSHION + TABLE_W - BALL_R;
   const minY = CUSHION + BALL_R, maxY = CUSHION + TABLE_H - BALL_R;
 
@@ -157,7 +157,7 @@ export function drawAim(g, cue, mx, my) {
     if (Math.abs(ny - minY) < 0.6 || Math.abs(ny - maxY) < 0.6) dy = -dy;
     x = nx; y = ny;
   }
-  g.stroke({ width: 2, color: 0xff3030, alpha: 0.55 });
+  g.stroke({ width: 1, color: 0xff5050, alpha: 0.3 });
 }
 
 export function drawPower(g, label, frac) {
