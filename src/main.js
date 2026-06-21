@@ -41,8 +41,11 @@ async function main() {
 
   initBallTextures(app.renderer);
   applyStatic();
-  ui.el('lang-select').value = getLang();
-  ui.el('lang-select').onchange = (e) => { setLang(e.target.value); refreshHud(); ui.updateTurn(game.mode, game.turn === game.myPlayer); };
+  const markLang = () => document.querySelectorAll('#lang-seg .seg-btn').forEach((b) => b.classList.toggle('active', b.dataset.lang === getLang()));
+  document.querySelectorAll('#lang-seg .seg-btn').forEach((b) => {
+    b.onclick = () => { audio.resume(); audio.uiClick(); setLang(b.dataset.lang); markLang(); refreshHud(); ui.updateTurn(game.mode, game.turn === game.myPlayer); };
+  });
+  markLang();
 
   setupRack();
   setupInput();

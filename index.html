@@ -54,15 +54,21 @@
       .glass.small { width: 150px; font-size: 15px; padding: 12px 0; }
       .glass.primary { background: linear-gradient(135deg, rgba(80,230,150,.30), rgba(40,180,110,.22)); border-color: rgba(120,255,180,.55); }
 
-      #settings { width: 300px; padding: 16px 20px; border-radius: 12px; box-sizing: border-box;
-        color: #eafff2; font-size: 15px; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      #settings { width: 300px; padding: 22px 24px; border-radius: 18px; box-sizing: border-box;
+        color: #eafff2; flex-direction: column; align-items: stretch; gap: 14px;
         background: var(--glass-bg); border: 1px solid var(--glass-border);
-        backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); }
-      #settings select {
-        font-family: inherit; font-size: 15px; color: #fff; padding: 8px 10px; border-radius: 8px; cursor: pointer;
-        background: rgba(0,0,0,.35); border: 1px solid var(--glass-border); outline: none;
-      }
-      #settings select option { color: #111; }
+        backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+        animation: settleIn .25s ease; }
+      #settings .set-label { font-size: 12px; letter-spacing: 2px; text-transform: uppercase; opacity: .8; text-align: center; }
+      .seg { display: flex; gap: 6px; padding: 5px; border-radius: 13px; background: rgba(0,0,0,.28); }
+      .seg-btn { flex: 1; padding: 11px 0; border: none; border-radius: 9px; cursor: pointer;
+        font-family: inherit; font-size: 15px; color: #cfe9d8; background: transparent;
+        transition: background .15s, color .15s, transform .08s; }
+      .seg-btn:hover { background: rgba(255,255,255,.1); color: #fff; }
+      .seg-btn:active { transform: scale(.96); }
+      .seg-btn.active { background: linear-gradient(135deg, rgba(80,230,150,.4), rgba(40,180,110,.3));
+        color: #fff; font-weight: 700; box-shadow: inset 0 1px 0 rgba(255,255,255,.3); }
+      @keyframes settleIn { from { opacity: 0; transform: translateY(-6px) scale(.98); } to { opacity: 1; transform: none; } }
 
       .panel { display: flex; flex-direction: column; gap: 14px; align-items: center;
         width: 340px; padding: 28px; border-radius: 18px; }
@@ -197,11 +203,11 @@
         <button class="glass" id="btn-settings" data-i18n="settings">Ajustes</button>
         <button class="glass" id="btn-quit" data-i18n="quit">Salir</button>
         <div id="settings" style="display:none">
-          <label for="lang-select" data-i18n="language">Idioma</label>
-          <select id="lang-select">
-            <option value="es" data-i18n="spanish">Español</option>
-            <option value="en" data-i18n="english">Inglés</option>
-          </select>
+          <span class="set-label" data-i18n="language">Idioma</span>
+          <div class="seg" id="lang-seg">
+            <button class="seg-btn" data-lang="es" data-i18n="spanish">Español</button>
+            <button class="seg-btn" data-lang="en" data-i18n="english">Inglés</button>
+          </div>
         </div>
       </div>
 
