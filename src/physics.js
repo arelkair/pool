@@ -132,9 +132,22 @@ function sinkPockets(balls) {
   return justPotted;
 }
 
-export function respawnCue(cue) {
-  cue.x = CUSHION + TABLE_W * 0.25;
-  cue.y = CUSHION + TABLE_H / 2;
+// Ball-in-hand: drop the cue ball at (x, y), clamped to the table and nudged
+// off any ball it would land inside of.
+export function placeCue(cue, balls, x, y) {
+  let nx = Math.min(Math.max(x, MIN_X), MAX_X);
+  let ny = Math.min(Math.max(y, MIN_Y), MAX_Y);
+  for (const b of balls) {
+    if (b === cue || b.potted) continue;
+    const dx = nx - b.x, dy = ny - b.y;
+    const dist = Math.hypot(dx, dy) || 0.01;
+    if (dist < BALL_R * 2) {
+      nx = b.x + (dx / dist) * BALL_R * 2;
+      ny = b.y + (dy / dist) * BALL_R * 2;
+    }
+  }
+  cue.x = Math.min(Math.max(nx, MIN_X), MAX_X);
+  cue.y = Math.min(Math.max(ny, MIN_Y), MAX_Y);
   cue.vx = 0; cue.vy = 0;
   cue.potted = false;
 }

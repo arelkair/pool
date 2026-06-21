@@ -102,6 +102,15 @@
       #hud button:hover { background: rgba(255,255,255,.26); transform: translateY(-1px); }
       #hud button:active { transform: scale(.92); }
 
+      #balls-left { position: fixed; top: 52px; left: 18px; z-index: 5; display: none;
+        flex-direction: column; gap: 4px; pointer-events: none; }
+      #balls-left.show { display: flex; }
+      #balls-left .row { display: flex; gap: 4px; align-items: center; }
+      #balls-left .row .lbl { font-size: 11px; opacity: .75; width: 44px; }
+      #balls-left .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+        border: 1px solid rgba(255,255,255,.45); box-shadow: 0 1px 2px rgba(0,0,0,.4); }
+      #balls-left .dot.gone { opacity: .15; border-color: rgba(255,255,255,.15); box-shadow: none; }
+
       #hint {
         position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 6;
         padding: 12px 18px; border-radius: 12px; color: #eafff2; font-size: 13px; line-height: 1.5; text-align: center;
@@ -169,6 +178,7 @@
       </div>
     </div>
 
+    <div id="balls-left"></div>
     <div id="hint" data-i18n="aimHint">Arrastra desde la bola blanca y suelta para tirar. Cuanto más estiras, más fuerza.</div>
     <div id="toast"></div>
     <div id="banner"><div class="txt"></div></div>

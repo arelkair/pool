@@ -129,13 +129,35 @@ export function buildBallVisual(ball) {
   return c;
 }
 
+// Predicted path: a straight shot line that reflects off the rails so the
+// player can see roughly where the cue ball would travel.
 export function drawAim(g, cue, mx, my) {
   g.clear();
   g.moveTo(cue.x, cue.y).lineTo(mx, my).stroke({ width: 2, color: 0xffffff, alpha: 0.5 });
+
   const len = Math.hypot(cue.x - mx, cue.y - my) || 1;
-  const tipX = cue.x + ((cue.x - mx) / len) * 220;
-  const tipY = cue.y + ((cue.y - my) / len) * 220;
-  g.moveTo(cue.x, cue.y).lineTo(tipX, tipY).stroke({ width: 2, color: 0xff3030, alpha: 0.85 });
+  let dx = (cue.x - mx) / len, dy = (cue.y - my) / len;
+  let x = cue.x, y = cue.y, remaining = 700;
+  const minX = CUSHION + BALL_R, maxX = CUSHION + TABLE_W - BALL_R;
+  const minY = CUSHION + BALL_R, maxY = CUSHION + TABLE_H - BALL_R;
+
+  g.moveTo(x, y);
+  for (let bounces = 0; bounces < 3 && remaining > 0; bounces++) {
+    let t = Infinity;
+    if (dx > 0) t = Math.min(t, (maxX - x) / dx);
+    else if (dx < 0) t = Math.min(t, (minX - x) / dx);
+    if (dy > 0) t = Math.min(t, (maxY - y) / dy);
+    else if (dy < 0) t = Math.min(t, (minY - y) / dy);
+    t = Math.min(t, remaining);
+    if (!isFinite(t) || t <= 0) break;
+    const nx = x + dx * t, ny = y + dy * t;
+    g.lineTo(nx, ny);
+    remaining -= t;
+    if (Math.abs(nx - minX) < 0.6 || Math.abs(nx - maxX) < 0.6) dx = -dx;
+    if (Math.abs(ny - minY) < 0.6 || Math.abs(ny - maxY) < 0.6) dy = -dy;
+    x = nx; y = ny;
+  }
+  g.stroke({ width: 2, color: 0xff3030, alpha: 0.55 });
 }
 
 export function drawPower(g, label, frac) {

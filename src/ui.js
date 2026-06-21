@@ -1,5 +1,6 @@
 // DOM helpers for the menu, HUD, toast, big banner and modal dialogs. No game logic.
 import { t } from './i18n.js';
+import { BALL_COLORS } from './config.js';
 
 export const el = (id) => document.getElementById(id);
 
@@ -67,6 +68,33 @@ export function setStatus(id, text, error = false) {
 }
 
 export function setMuteIcon(muted) { el('btn-mute').textContent = muted ? '🔇' : '🔊'; }
+
+// rows of small dots per player showing which of their group's balls remain on the table
+export function updateBallsLeft(mode, balls, groups, myPlayer) {
+  const box = el('balls-left');
+  if (mode === 'solo' || !balls) { box.classList.remove('show'); return; }
+  box.classList.add('show');
+  box.innerHTML = '';
+  for (const p of [myPlayer, myPlayer === 1 ? 2 : 1]) {
+    const group = groups[p];
+    if (!group) continue;
+    const nums = group === 'solids' ? [1, 2, 3, 4, 5, 6, 7] : [9, 10, 11, 12, 13, 14, 15];
+    const row = document.createElement('div');
+    row.className = 'row';
+    const lbl = document.createElement('span');
+    lbl.className = 'lbl';
+    lbl.textContent = p === myPlayer ? t('you') : t('rival');
+    row.appendChild(lbl);
+    for (const n of nums) {
+      const b = balls.find((x) => x.number === n);
+      const dot = document.createElement('span');
+      dot.className = 'dot' + (!b || b.potted ? ' gone' : '');
+      dot.style.background = '#' + BALL_COLORS[n].toString(16).padStart(6, '0');
+      row.appendChild(dot);
+    }
+    box.appendChild(row);
+  }
+}
 
 // modal that resolves true (Aceptar) / false (Rechazar)
 function modal(modalId, acceptId, rejectId) {

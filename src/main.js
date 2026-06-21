@@ -1,6 +1,6 @@
 import { Application, Container, Graphics, Text } from 'pixi.js';
 import { CANVAS_W, CANVAS_H, MAX_DRAG, MIN_DRAG, POWER_CURVE } from './config.js';
-import { rack, step, allStopped, shoot, respawnCue } from './physics.js';
+import { rack, step, allStopped, shoot, placeCue } from './physics.js';
 import { drawTable, buildBallVisual, drawAim, drawPower, initBallTextures } from './scene.js';
 import { host, join } from './net.js';
 import * as ui from './ui.js';
@@ -15,7 +15,7 @@ const game = {
   balls: null, cue: null, sprites: null, byNumber: null,
   shots: 0, shooting: false, shotPotted: [], cueFoul: false,
   groups: { 1: null, 2: null }, gameOver: false, winner: null,
-  net: null, settled: true, cuePotted: false,
+  net: null, settled: true, cuePotted: false, ballInHand: false,
   sfxBall: 0, sfxRail: 0, sfxPocket: 0,
 };
 
@@ -86,7 +86,6 @@ function physicsFrame() {
     if (b.number === 0) game.cueFoul = true;
   }
   if (potted.length) refreshHud();
-  if (game.cue.potted && allStopped(game.balls)) respawnCue(game.cue);
   if (game.shooting && allStopped(game.balls)) {
     if (game.mode === 'host') resolveTurn();
     else { game.shooting = false; refreshHud(); } // solo: free play
@@ -125,7 +124,7 @@ function setupRack() {
   }
   for (const b of game.balls) { b.tx = b.x; b.ty = b.y; }
   game.shots = 0; game.shooting = false; game.shotPotted = []; game.cueFoul = false;
-  game.gameOver = false; game.winner = null;
+  game.gameOver = false; game.winner = null; game.ballInHand = false;
   refreshHud();
 }
 
@@ -139,16 +138,41 @@ function refreshHud() {
     ui.updateHud(game.shots, p, 7);
   }
   ui.updateGroup(game.mode, game.groups[game.myPlayer]);
+  ui.updateBallsLeft(game.mode, game.balls, game.groups, game.myPlayer);
 }
 
 function canShoot() {
-  if (game.gameOver) return false;
+  if (game.gameOver || game.ballInHand) return false;
   const stopped = game.mode === 'guest' ? game.settled : allStopped(game.balls);
   if (!stopped) return false;
   if (game.mode === 'guest') return !game.cuePotted && game.turn === game.myPlayer;
   if (game.cue.potted) return false;
   if (game.mode === 'solo') return true;
   return game.turn === game.myPlayer; // host
+}
+
+// the player whose foul it was, or the one about to shoot after a scratch,
+// gets to drop the cue ball anywhere on the table before shooting
+function canPlaceCue() {
+  if (game.gameOver || !game.ballInHand) return false;
+  const stopped = game.mode === 'guest' ? game.settled : allStopped(game.balls);
+  if (!stopped) return false;
+  if (game.mode === 'solo') return true;
+  return game.turn === game.myPlayer;
+}
+
+function applyCuePlacement(x, y) {
+  placeCue(game.cue, game.balls, x, y);
+  game.cue.tx = game.cue.x; game.cue.ty = game.cue.y;
+  game.ballInHand = false;
+  ui.el('hint').textContent = t('aimHint');
+  ui.showHint();
+}
+
+function placeCueAt(x, y) {
+  if (game.mode === 'guest') { game.net.send({ type: 'place', x, y }); return; }
+  applyCuePlacement(x, y);
+  if (game.mode === 'host') sendState();
 }
 
 function doShoot(dx, dy, power) {
@@ -178,6 +202,7 @@ function resolveTurn() {
   }
   const keep = mineCount > 0 && !cueFoul;
   if (!keep) game.turn = other(shooter);
+  game.ballInHand = cueFoul;
   game.shotPotted = []; game.cueFoul = false;
   refreshHud();
   announceTurn();
@@ -199,7 +224,13 @@ function showEndBanner() {
 
 function announceTurn() {
   ui.updateTurn(game.mode, game.turn === game.myPlayer);
-  queueBanner(game.turn === game.myPlayer ? t('yourTurn') : t('rivalTurn'));
+  if (game.ballInHand && game.turn === game.myPlayer) {
+    queueBanner(t('ballInHandYou'));
+    ui.el('hint').textContent = t('placeCueHint');
+    ui.showHint();
+  } else {
+    queueBanner(game.turn === game.myPlayer ? t('yourTurn') : t('rivalTurn'));
+  }
   if (game.turn === game.myPlayer) audio.turnChime();
   maybeNotifyTurn();
 }
@@ -252,6 +283,7 @@ function maybeAskNotifications() {
 function sendState() {
   game.net.send({
     type: 'state', turn: game.turn, settled: allStopped(game.balls), cuePotted: game.cue.potted,
+    ballInHand: game.ballInHand,
     shots: game.shots, groups: game.groups, gameOver: game.gameOver, winner: game.winner,
     sfx: { b: game.sfxBall, r: game.sfxRail, p: game.sfxPocket },
     balls: game.balls.map((b) => ({ n: b.number, x: b.x, y: b.y, r: game.sprites.get(b).spin.rotation, p: b.potted })),
@@ -262,7 +294,7 @@ function sendState() {
 function applyState(m) {
   const prevTurn = game.turn, prevOver = game.gameOver;
   game.turn = m.turn; game.settled = m.settled; game.cuePotted = m.cuePotted; game.shots = m.shots;
-  game.groups = m.groups; game.gameOver = m.gameOver; game.winner = m.winner;
+  game.groups = m.groups; game.gameOver = m.gameOver; game.winner = m.winner; game.ballInHand = m.ballInHand;
   for (const bs of m.balls) {
     const e = game.byNumber.get(bs.n);
     if (!e) continue;
@@ -276,7 +308,13 @@ function applyState(m) {
   refreshHud();
   ui.updateTurn(game.mode, game.turn === game.myPlayer);
   if (m.turn !== prevTurn) {
-    queueBanner(game.turn === game.myPlayer ? t('yourTurn') : t('rivalTurn'));
+    if (game.ballInHand && game.turn === game.myPlayer) {
+      queueBanner(t('ballInHandYou'));
+      ui.el('hint').textContent = t('placeCueHint');
+      ui.showHint();
+    } else {
+      queueBanner(game.turn === game.myPlayer ? t('yourTurn') : t('rivalTurn'));
+    }
     if (game.turn === game.myPlayer) audio.turnChime();
     maybeNotifyTurn();
   }
@@ -290,9 +328,12 @@ function setupInput() {
     return { x: (e.clientX - r.left) * (app.canvas.width / r.width), y: (e.clientY - r.top) * (app.canvas.height / r.height) };
   };
   app.canvas.addEventListener('pointerdown', (e) => {
-    if (!document.hasFocus() || !canShoot()) return; // ignore clicks that just refocus the window
+    if (!document.hasFocus()) return; // ignore clicks that just refocus the window
+    const p = pos(e);
+    if (canPlaceCue()) { placeCueAt(p.x, p.y); return; }
+    if (!canShoot()) return;
     // grab anywhere on the table and drag to aim — a plain click still won't shoot (see pointerup)
-    dragStart = pos(e);
+    dragStart = p;
   });
   window.addEventListener('pointermove', (e) => {
     if (!dragStart) return;
@@ -340,6 +381,15 @@ function onMessage(m) {
     maybeAskNotifications().then(announceGroupAndTurn);
   } else if (m.type === 'state' && game.mode === 'guest') applyState(m);
   else if (m.type === 'shoot' && game.mode === 'host' && game.turn === 2 && !game.gameOver) doShoot(m.dx, m.dy, m.power);
+  else if (m.type === 'place' && game.mode === 'host' && game.turn === 2 && game.ballInHand) { applyCuePlacement(m.x, m.y); sendState(); }
+  else if (m.type === 'restart' && game.mode === 'host') {
+    setupRack();
+    stopBanners();
+    newMatchGroups();
+    game.net.send({ type: 'start', groups: game.groups, turn: game.turn });
+    sendState();
+    announceGroupAndTurn();
+  }
 }
 
 function newMatchGroups() {
@@ -402,9 +452,9 @@ function wireMenu() {
   ui.el('btn-mute').onclick = () => { audio.resume(); audio.setMuted(!audio.isMuted()); ui.setMuteIcon(audio.isMuted()); audio.uiClick(); };
   ui.el('btn-restart').onclick = async () => {
     audio.resume(); audio.uiClick();
-    if (game.mode === 'guest') return;
     const ok = await ui.confirm(t('confirmRestart'));
     if (!ok) return;
+    if (game.mode === 'guest') { game.net.send({ type: 'restart' }); return; }
     setupRack();
     stopBanners();
     if (game.mode === 'host') {
