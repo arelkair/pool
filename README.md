@@ -2,12 +2,10 @@
 
 A 2D pool game for the browser, with online 1v1 multiplayer.
 
-Play: https://pool-arelkair.vercel.app
-
 ## How to play
 
-- Single player: free practice.
-- Multiplayer: one player creates a game and shares the 4-letter code; the other
+- Singleplayer: Free practice.
+- Multiplayer: One player creates a game and shares the 4-letter code; the other
   joins with that code. It runs peer-to-peer over the internet, with no servers or
   router setup. Turns follow standard 8-ball rules.
 
@@ -15,7 +13,7 @@ To shoot, drag from the cue ball and release. The further you pull, the more pow
 
 Available in English and Spanish (Settings > Language).
 
-## Project structure
+## Project Structure
 
     src/config.js     constants (table, balls, physics)
     src/physics.js    custom billiards engine (collisions, friction, pockets)
