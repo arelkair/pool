@@ -1,18 +1,31 @@
-export const TABLE_W = 1000;
-export const TABLE_H = 500;
-export const CUSHION = 30;
+export const BALL_DIAMETER_MM = 57.15;
+export const TABLE_LENGTH_MM = 2540;
+export const TABLE_WIDTH_MM = 1270;
+export const CORNER_MOUTH_MM = 117;
+export const SIDE_MOUTH_MM = 130;
 
-export const CANVAS_W = TABLE_W + CUSHION * 2;
-export const CANVAS_H = TABLE_H + CUSHION * 2;
+export const MM = 24 / BALL_DIAMETER_MM;
 
-export const BALL_R = 12;
-export const POCKET_R = 22;
+export const BALL_R = (BALL_DIAMETER_MM / 2) * MM;
+export const TABLE_W = TABLE_LENGTH_MM * MM;
+export const TABLE_H = TABLE_WIDTH_MM * MM;
+export const CUSHION = 40;
 
-export const MAX_SHOT_SPEED = 40;
-export const FRICTION = 0.986;
-export const STOP_SPEED = 0.38;
-export const WALL_RESTITUTION = 0.76;
-export const BALL_RESTITUTION = 0.93;
+export const CANVAS_W = Math.round(TABLE_W + CUSHION * 2);
+export const CANVAS_H = Math.round(TABLE_H + CUSHION * 2);
+
+export const CORNER_MOUTH = CORNER_MOUTH_MM * MM;
+export const SIDE_MOUTH = SIDE_MOUTH_MM * MM;
+
+export const GRAVITY = 9810 * MM;
+export const MU_SLIDE = 0.2;
+export const MU_ROLL = 0.012;
+export const MU_BALL = 0.05;
+export const MU_CUSHION = 0.14;
+export const SPIN_DECEL = 38;
+export const BALL_RESTITUTION = 0.95;
+
+export const MAX_SHOT_SPEED = 8000 * MM;
 export const POWER_CURVE = 1.6;
 
 export const MAX_DRAG = 210;

@@ -1,5 +1,5 @@
 import { Container, Graphics, Text, Sprite, Rectangle, FillGradient } from 'pixi.js';
-import { CANVAS_W, CANVAS_H, CUSHION, TABLE_W, TABLE_H, BALL_R, POCKET_R, BALL_COLORS } from './config.js';
+import { CANVAS_W, CANVAS_H, CUSHION, TABLE_W, TABLE_H, BALL_R, BALL_COLORS } from './config.js';
 import { pocketPositions } from './physics.js';
 import { t } from './i18n.js';
 
@@ -7,52 +7,38 @@ const INK = 0xe8e8e8;
 const MUTED = 0x8f8f8f;
 const PAPER = 0x0f0f0f;
 
-export function drawTable() {
+const FRAME = 0x14502d;
+const RUBBER = 0x185f35;
+const CLOTH = 0x1f7a45;
+
+export function drawTable(renderer) {
   const g = new Graphics();
 
-  const wood = new FillGradient({
-    type: 'linear', start: { x: 0, y: 0 }, end: { x: 0, y: 1 },
-    colorStops: [{ offset: 0, color: 0x8a5a30 }, { offset: 0.5, color: 0x5c3b1d }, { offset: 1, color: 0x36230f }],
-    textureSpace: 'local',
-  });
-  g.roundRect(0, 0, CANVAS_W, CANVAS_H, 8).fill(wood);
-  g.roundRect(3, 3, CANVAS_W - 6, CANVAS_H - 6, 6).stroke({ width: 2, color: 0xffe2b0, alpha: 0.18 });
+  g.roundRect(0, 0, CANVAS_W, CANVAS_H, 8).fill(FRAME);
 
-  g.rect(CUSHION - 8, CUSHION - 8, TABLE_W + 16, TABLE_H + 16).fill(0x1b6e3a);
-
-  const cloth = new FillGradient({
-    type: 'radial',
-    innerCenter: { x: 0.5, y: 0.42 }, innerRadius: 0.04,
-    outerCenter: { x: 0.5, y: 0.5 }, outerRadius: 0.66,
-    colorStops: [{ offset: 0, color: 0x24c55c }, { offset: 0.7, color: 0x12953f }, { offset: 1, color: 0x0a6b2c }],
-    textureSpace: 'local',
-  });
-  g.rect(CUSHION, CUSHION, TABLE_W, TABLE_H).fill(cloth);
-  g.rect(CUSHION, CUSHION, TABLE_W, TABLE_H).stroke({ width: 8, color: 0x000000, alpha: 0.18 });
-  g.rect(CUSHION + 2, CUSHION + 2, TABLE_W - 4, TABLE_H - 4).stroke({ width: 2, color: 0x000000, alpha: 0.12 });
+  const lip = 14;
+  g.rect(CUSHION - lip, CUSHION - lip, TABLE_W + lip * 2, TABLE_H + lip * 2).fill(RUBBER);
+  g.rect(CUSHION, CUSHION, TABLE_W, TABLE_H).fill(CLOTH);
 
   const dots = [];
-  for (const f of [0.25, 0.5, 0.75]) {
+  for (const f of [0.125, 0.25, 0.375, 0.625, 0.75, 0.875]) {
     dots.push([CUSHION + TABLE_W * f, CUSHION / 2], [CUSHION + TABLE_W * f, CANVAS_H - CUSHION / 2]);
   }
-  dots.push([CUSHION / 2, CUSHION + TABLE_H / 2], [CANVAS_W - CUSHION / 2, CUSHION + TABLE_H / 2]);
-  for (const [x, y] of dots) {
-    g.circle(x, y, 3.5).fill(0xfff0cf);
-    g.circle(x, y, 3.5).stroke({ width: 1, color: 0x4a3a1f, alpha: 0.5 });
+  for (const f of [0.25, 0.5, 0.75]) {
+    dots.push([CUSHION / 2, CUSHION + TABLE_H * f], [CANVAS_W - CUSHION / 2, CUSHION + TABLE_H * f]);
   }
+  for (const [x, y] of dots) g.circle(x, y, 2.5).fill({ color: INK, alpha: 0.7 });
 
   for (const p of pocketPositions()) {
-    g.circle(p.x, p.y, POCKET_R + 6).fill({ color: 0x000000, alpha: 0.4 });
-    g.circle(p.x, p.y, POCKET_R + 3).fill(0x4a3a1f);
-    g.circle(p.x, p.y, POCKET_R + 3).stroke({ width: 2, color: 0xd9b15a, alpha: 0.7 });
-    const hole = new FillGradient({
-      type: 'radial', innerCenter: { x: 0.5, y: 0.4 }, innerRadius: 0, outerCenter: { x: 0.5, y: 0.5 }, outerRadius: 0.5,
-      colorStops: [{ offset: 0, color: 0x101010 }, { offset: 1, color: 0x000000 }], textureSpace: 'local',
-    });
-    g.circle(p.x, p.y, POCKET_R).fill(hole);
+    const cx = p.x + p.ox * p.r * (p.side ? 0 : 0.45);
+    const cy = p.y + p.oy * p.r * (p.side ? 0.5 : 0.45);
+    g.circle(cx, cy, p.r * 1.05).fill(RUBBER);
+    g.circle(cx, cy, p.r * 0.92).fill(PAPER);
   }
 
-  return g;
+  const texture = renderer.generateTexture({ target: g, frame: new Rectangle(0, 0, CANVAS_W, CANVAS_H), resolution: renderer.resolution, antialias: true });
+  g.destroy();
+  return new Sprite(texture);
 }
 
 function faceGraphics(number, color) {

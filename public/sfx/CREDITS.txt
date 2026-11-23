@@ -1,12 +1,21 @@
 All sounds and the music in this folder are original, synthesized for this game, with no third-party material.
 
-ball-hit-1.ogg, ball-hit-2.ogg, rail-hit.ogg, pocket.ogg, cue-strike.ogg
-  Filtered noise and decaying sine bursts.
+ball-hit-1.ogg to ball-hit-4.ogg
+  Ball-on-ball clicks: a noise transient plus damped inharmonic modes, four variants.
+
+cue-strike.ogg
+  Leather tip contact plus a low knock.
+
+rail-hit.ogg
+  Cushion thud: low-passed noise and damped low modes.
+
+pocket.ogg
+  Jaw click, rolling rumble, drop and thud.
 
 notify.ogg, turn-chime.ogg, win.ogg, lose.ogg
-  Soft electric-piano style tones in short phrases.
+  Bell tones with inharmonic partials in short phrases.
 
 music-loop.ogg
-  Electric-piano loop in D minor (Dm9 - Bbmaj7 - Cmaj7 - Gm6), 72 bpm, 8 bars.
+  Pad, plucked arpeggios and soft bass over Fmaj9 - Am7 - Bbmaj7 - Cmaj7 - Fmaj9 - Dm9 - Bbmaj9 - Cadd9, 76 bpm, 8 bars.
 
 The interface click is synthesized at runtime and has no file.

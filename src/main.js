@@ -1,8 +1,7 @@
 import { Application, Container, Graphics, Text } from 'pixi.js';
-import { CANVAS_W, CANVAS_H, CUSHION, MAX_DRAG, MIN_DRAG, POWER_CURVE, BALL_COLORS } from './config.js';
+import { CANVAS_W, CANVAS_H, CUSHION, MAX_DRAG, MIN_DRAG, POWER_CURVE, BALL_R } from './config.js';
 import { rack, step, allStopped, shoot, placeCue } from './physics.js';
 import { drawTable, buildBallVisual, drawAim, drawPower, initBallTextures } from './scene.js';
-import { host, join } from './net.js';
 import * as ui from './ui.js';
 import * as audio from './audio.js';
 import { t, setLang, getLang, applyStatic } from './i18n.js';
@@ -19,17 +18,22 @@ const game = {
   sfxBall: 0, sfxRail: 0, sfxPocket: 0,
 };
 
-let app, ballLayer, aimLine, powerBar, powerLabel, frame = 0;
+let app, ballLayer, aimLine, powerBar, powerLabel, tableSprite;
 let bannerQ = [], bannerBusy = false;
-let lastPhysics = 0;
+let lastTime = 0, accumulator = 0, sinceSend = 0, dirty = true;
+const FIXED = 1 / 120;
+const SEND_EVERY = 1 / 30;
+
+const markDirty = () => { dirty = true; };
 
 async function main() {
   app = new Application();
-  await app.init({ width: CANVAS_W, height: CANVAS_H, backgroundColor: 0x0f0f0f, antialias: true });
-  app.ticker.maxFPS = 60;
+  await app.init({ width: CANVAS_W, height: CANVAS_H, backgroundColor: 0x0f0f0f, antialias: true, autoStart: false, resolution: Math.min(window.devicePixelRatio || 1, 2), powerPreference: 'high-performance' });
+  app.ticker.stop();
   document.getElementById('app').appendChild(app.canvas);
 
-  app.stage.addChild(drawTable());
+  tableSprite = drawTable(app.renderer);
+  app.stage.addChild(tableSprite);
   ballLayer = new Container();
   app.stage.addChild(ballLayer);
   aimLine = new Graphics();
@@ -54,27 +58,47 @@ async function main() {
   setupRack();
   setupInput();
 
-  lastPhysics = performance.now();
-  setInterval(physicsLoop, 1000 / 60);
-  app.ticker.add(renderFrame);
+  lastTime = performance.now();
+  requestAnimationFrame(frameLoop);
+  setInterval(hiddenLoop, 250);
 
   wireMenu();
-  renderBallStrip();
 }
 
-function physicsLoop() {
-  const now = performance.now();
-  let n = Math.round((now - lastPhysics) / (1000 / 60));
-  if (n < 1) return;
-  lastPhysics = now;
-  if (n > 150) n = 150;
-  for (let i = 0; i < n; i++) physicsFrame();
+function advance(now) {
+  const elapsed = Math.min(now - lastTime, 2500) / 1000;
+  lastTime = now;
+  if (game.mode === 'guest') return elapsed;
+
+  accumulator += elapsed;
+  const stepsDue = Math.floor(accumulator / FIXED);
+  accumulator -= stepsDue * FIXED;
+  for (let i = 0; i < stepsDue; i++) physicsFrame();
+  return elapsed;
+}
+
+function frameLoop(now) {
+  requestAnimationFrame(frameLoop);
+  if (document.hidden) return;
+  const dt = advance(now);
+  renderFrame(dt);
+}
+
+function hiddenLoop() {
+  if (document.hidden) advance(performance.now());
 }
 
 function physicsFrame() {
-  if (game.mode === 'guest') return;
+  if (game.mode === 'guest' || !game.balls) return;
+  if (!game.shooting && allStopped(game.balls)) return;
   const audible = !document.hidden;
-  const { potted, hits } = step(game.balls);
+  dirty = true;
+
+  for (const b of game.balls) {
+    b.px = b.x;
+    b.py = b.y;
+  }
+  const { potted, hits } = step(game.balls, FIXED);
 
   for (const h of hits) {
     if (h.type === 'ball') {
@@ -98,22 +122,44 @@ function physicsFrame() {
     if (game.mode === 'host') resolveTurn();
     else resolveSoloShot();
   }
-  if (game.mode === 'host' && game.started && game.net && (++frame % 2 === 0)) sendState();
+  sinceSend += FIXED;
+  if (game.mode === 'host' && game.started && game.net && sinceSend >= SEND_EVERY) {
+    sinceSend = 0;
+    sendState();
+  }
 }
 
-function renderFrame() {
+function renderFrame(dt) {
+  if (!game.sprites) return;
   const guest = game.mode === 'guest';
+  const alpha = guest ? 1 : accumulator / FIXED;
+  const follow = 1 - Math.exp(-dt * 22);
+  let moving = false;
+
   for (const [ball, spr] of game.sprites) {
     spr.visible = !ball.potted;
     if (ball.potted) continue;
+    let x = ball.x, y = ball.y;
     if (guest) {
-      ball.x += ((ball.tx ?? ball.x) - ball.x) * 0.35;
-      ball.y += ((ball.ty ?? ball.y) - ball.y) * 0.35;
-    } else {
+      const tx = ball.tx ?? ball.x, ty = ball.ty ?? ball.y;
+      ball.x += (tx - ball.x) * follow;
+      ball.y += (ty - ball.y) * follow;
+      x = ball.x;
+      y = ball.y;
+      if (Math.abs(tx - x) + Math.abs(ty - y) > 0.02) moving = true;
+    } else if (ball.vx !== 0 || ball.vy !== 0) {
+      x = ball.px + (ball.x - ball.px) * alpha;
+      y = ball.py + (ball.y - ball.py) * alpha;
       const sp = Math.hypot(ball.vx, ball.vy);
-      spr.spin.rotation += (ball.vx >= 0 ? 1 : -1) * sp * 0.04;
+      spr.spin.rotation += (ball.vx >= 0 ? 1 : -1) * (sp * dt) / BALL_R * 0.7;
+      moving = true;
     }
-    spr.position.set(ball.x, ball.y);
+    spr.position.set(x, y);
+  }
+
+  if (moving || dirty) {
+    dirty = false;
+    app.render();
   }
 }
 
@@ -129,7 +175,9 @@ function setupRack() {
     game.sprites.set(b, v);
     game.byNumber.set(b.number, { ball: b, spr: v });
     ballLayer.addChild(v);
+    v.position.set(b.x, b.y);
   }
+  markDirty();
   for (const b of game.balls) {
     b.tx = b.x;
     b.ty = b.y;
@@ -181,6 +229,7 @@ function applyCuePlacement(x, y) {
   game.cue.tx = game.cue.x;
   game.cue.ty = game.cue.y;
   game.ballInHand = false;
+  markDirty();
   ui.el('hint').textContent = t('aimHint');
   ui.showHint();
 }
@@ -342,12 +391,13 @@ function maybeAskNotifications() {
 }
 
 function sendState() {
+  if (!game.net) return;
   game.net.send({
     type: 'state', turn: game.turn, settled: allStopped(game.balls), cuePotted: game.cue.potted,
     ballInHand: game.ballInHand,
     shots: game.shots, groups: game.groups, gameOver: game.gameOver, winner: game.winner,
     sfx: { b: game.sfxBall, r: game.sfxRail, p: game.sfxPocket },
-    balls: game.balls.map((b) => ({ n: b.number, x: b.x, y: b.y, r: game.sprites.get(b).spin.rotation, p: b.potted })),
+    balls: game.balls.map((b) => ({ n: b.number, x: Math.round(b.x * 10) / 10, y: Math.round(b.y * 10) / 10, r: game.sprites.get(b).spin.rotation, p: b.potted })),
   });
   game.sfxBall = 0;
   game.sfxRail = 0;
@@ -355,6 +405,7 @@ function sendState() {
 }
 
 function applyState(m) {
+  markDirty();
   const prevTurn = game.turn, prevOver = game.gameOver;
   game.turn = m.turn;
   game.settled = m.settled;
@@ -403,7 +454,7 @@ function setupInput() {
 
   const pos = (e) => {
     const r = app.canvas.getBoundingClientRect();
-    return { x: (e.clientX - r.left) * (app.canvas.width / r.width), y: (e.clientY - r.top) * (app.canvas.height / r.height) };
+    return { x: (e.clientX - r.left) * (CANVAS_W / r.width), y: (e.clientY - r.top) * (CANVAS_H / r.height) };
   };
 
   app.canvas.addEventListener('pointerdown', (e) => {
@@ -424,6 +475,7 @@ function setupInput() {
     const power = Math.pow(frac, POWER_CURVE);
     drawAim(aimLine, game.cue, p.x, p.y, power);
     drawPower(powerBar, powerLabel, power);
+    markDirty();
   });
 
   window.addEventListener('pointerup', (e) => {
@@ -441,6 +493,7 @@ function setupInput() {
     aimLine.clear();
     powerBar.clear();
     powerLabel.visible = false;
+    markDirty();
   });
 }
 
@@ -493,8 +546,9 @@ function newMatchGroups() {
   game.turn = 1;
 }
 
-function startHost() {
+async function startHost() {
   closeNet();
+  const { host } = await import('./net.js');
   game.mode = 'host';
   game.myPlayer = 1;
   ui.el('host-code').textContent = '····';
@@ -517,7 +571,7 @@ function startHost() {
   });
 }
 
-function startJoin() {
+async function startJoin() {
   const code = ui.el('join-code').value.trim().toUpperCase();
   if (code.length < 4) {
     ui.setStatus('join-status', t('code4'), true);
@@ -527,6 +581,7 @@ function startJoin() {
   game.mode = 'guest';
   game.myPlayer = 2;
   ui.setStatus('join-status', t('connecting'));
+  const { join } = await import('./net.js');
   game.net = join(code, {
     connected: () => ui.setStatus('join-status', t('waitingHost')),
     message: onMessage,
@@ -575,20 +630,6 @@ function wireMenu() {
     if (!ok) return;
     leaveGame();
   };
-
-}
-
-function renderBallStrip() {
-  const box = ui.el('ball-strip');
-  if (!box) return;
-  for (let n = 1; n <= 15; n++) {
-    const hex = '#' + BALL_COLORS[n].toString(16).padStart(6, '0');
-    const dot = document.createElement('i');
-    dot.style.background = n > 8
-      ? `linear-gradient(#f2eee4 0 26%, ${hex} 26% 74%, #f2eee4 74%)`
-      : hex;
-    box.appendChild(dot);
-  }
 }
 
 main();

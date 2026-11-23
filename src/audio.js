@@ -7,7 +7,7 @@ let lastHit = 0;
 const buffers = new Map();
 
 const SFX_FILES = {
-  ballHit: ['ball-hit-1.ogg', 'ball-hit-2.ogg'],
+  ballHit: ['ball-hit-1.ogg', 'ball-hit-2.ogg', 'ball-hit-3.ogg', 'ball-hit-4.ogg'],
   railHit: ['rail-hit.ogg'],
   pocket: ['pocket.ogg'],
   cueStrike: ['cue-strike.ogg'],
@@ -96,13 +96,13 @@ export function ballHit(speed) {
   const now = ctx.currentTime;
   if (now - lastHit < 0.012) return;
   lastHit = now;
-  const v = Math.min(1, speed / 30);
-  play('ballHit', { gain: 0.25 + v * 0.75, rate: 0.92 + v * 0.25 + Math.random() * 0.1 });
+  const v = Math.min(1, speed / 4);
+  play('ballHit', { gain: 0.2 + v * 0.8, rate: 0.94 + v * 0.12 + Math.random() * 0.06 });
 }
 
 export function railHit(speed) {
-  const v = Math.min(1, speed / 30);
-  play('railHit', { gain: 0.2 + v * 0.7, rate: 0.9 + v * 0.2 + Math.random() * 0.1 });
+  const v = Math.min(1, speed / 3);
+  play('railHit', { gain: 0.15 + v * 0.8, rate: 0.95 + v * 0.1 + Math.random() * 0.06 });
 }
 
 export function pocket() {
