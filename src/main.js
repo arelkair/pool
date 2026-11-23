@@ -1,5 +1,5 @@
 import { Application, Container, Graphics, Text } from 'pixi.js';
-import { CANVAS_W, CANVAS_H, MAX_DRAG, MIN_DRAG, POWER_CURVE, BALL_COLORS } from './config.js';
+import { CANVAS_W, CANVAS_H, CUSHION, MAX_DRAG, MIN_DRAG, POWER_CURVE, BALL_COLORS } from './config.js';
 import { rack, step, allStopped, shoot, placeCue } from './physics.js';
 import { drawTable, buildBallVisual, drawAim, drawPower, initBallTextures } from './scene.js';
 import { host, join } from './net.js';
@@ -25,7 +25,7 @@ let lastPhysics = 0;
 
 async function main() {
   app = new Application();
-  await app.init({ width: CANVAS_W, height: CANVAS_H, backgroundColor: 0x081109, antialias: true });
+  await app.init({ width: CANVAS_W, height: CANVAS_H, backgroundColor: 0x0f0f0f, antialias: true });
   app.ticker.maxFPS = 60;
   document.getElementById('app').appendChild(app.canvas);
 
@@ -34,11 +34,13 @@ async function main() {
   app.stage.addChild(ballLayer);
   aimLine = new Graphics();
   powerBar = new Graphics();
-  powerLabel = new Text({ text: 'POTENCIA', style: { fontFamily: 'system-ui, sans-serif', fontSize: 12, fontWeight: 'bold', fill: 0xffffff } });
-  powerLabel.position.set(24, CANVAS_H - 40);
+  powerLabel = new Text({ text: t('power'), style: { fontFamily: 'Allo, system-ui, sans-serif', fontSize: 12, fontWeight: '600', fill: 0x8f8f8f } });
+  powerLabel.position.set(CUSHION + 40, CANVAS_H - CUSHION - 46);
   powerLabel.visible = false;
   app.stage.addChild(aimLine, powerBar, powerLabel);
 
+  await document.fonts.load('700 9px Allo');
+  await document.fonts.load('600 12px Allo');
   initBallTextures(app.renderer);
   applyStatic();
   ui.setMuteIcon(audio.isMuted());
@@ -574,7 +576,9 @@ function wireMenu() {
     leaveGame();
   };
 
-  function renderBallStrip() {
+}
+
+function renderBallStrip() {
   const box = ui.el('ball-strip');
   if (!box) return;
   for (let n = 1; n <= 15; n++) {
@@ -585,7 +589,6 @@ function wireMenu() {
       : hex;
     box.appendChild(dot);
   }
-}
 }
 
 main();

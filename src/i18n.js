@@ -1,5 +1,6 @@
 const STR = {
   es: {
+    title: 'Billar',
     tagline: 'Practica tú solo o juega contra un amigo.',
     solo: 'Solo', soloDesc: 'Práctica libre, sin rival.',
     multiplayer: 'Multijugador', multiDesc: 'Un rival, un código de cuatro letras.',
@@ -13,6 +14,7 @@ const STR = {
     hostHint: 'Comparte este código con quien quieras jugar.',
     joinHint: 'Escribe el código de la sala.',
     aimHint: 'Arrastra desde la bola blanca y suelta para tirar. Cuanto más estiras, más fuerza.',
+    power: 'Fuerza',
     shots: 'Tiros', potted: 'Embocadas', you: 'Tú', rival: 'Rival', solids: 'Lisas', stripes: 'Rayadas',
     notifQuestion: '¿Deseas habilitar las notificaciones para saber cuando es tu turno si estás haciendo otras cosas?',
     accept: 'Aceptar', reject: 'Rechazar',
@@ -34,6 +36,7 @@ const STR = {
     code4: 'Escribe el código de 4 letras.',
   },
   en: {
+    title: 'Pool',
     tagline: 'Practise alone or play against a friend.',
     solo: 'Singleplayer', soloDesc: 'Free practice, no opponent.',
     multiplayer: 'Multiplayer', multiDesc: 'One opponent, a four-letter code.',
@@ -47,6 +50,7 @@ const STR = {
     hostHint: 'Share this code with whoever you want to play.',
     joinHint: 'Enter the room code.',
     aimHint: 'Drag from the cue ball and release to shoot. The further you pull, the more power.',
+    power: 'Power',
     shots: 'Shots', potted: 'Potted', you: 'You', rival: 'Opponent', solids: 'Solids', stripes: 'Stripes',
     notifQuestion: 'Do you want to enable notifications to know when it is your turn while you are doing other things?',
     accept: 'Accept', reject: 'Decline',
@@ -87,6 +91,7 @@ export function setLang(l) {
 
 export function applyStatic() {
   document.documentElement.lang = lang;
+  document.title = t('title');
   document.querySelectorAll('[data-i18n]').forEach((el) => { el.textContent = t(el.dataset.i18n); });
   document.querySelectorAll('[data-i18n-ph]').forEach((el) => { el.placeholder = t(el.dataset.i18nPh); });
 }

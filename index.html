@@ -1,10 +1,10 @@
 <!doctype html>
-<html lang="es">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Billar</title>
+    <title>Pool</title>
     <link rel="stylesheet" href="/src/styles.css" />
   </head>
   <body>
@@ -14,37 +14,37 @@
       <div class="line">
         <span id="hud-turn"></span>
         <span id="hud-group"></span>
-        <span><span data-i18n="shots">Tiros</span> <b id="hud-shots">0</b></span>
-        <span><span data-i18n="potted">Embocadas</span> <b id="hud-potted">0/7</b></span>
+        <span><span data-i18n="shots">Shots</span> <b id="hud-shots">0</b></span>
+        <span><span data-i18n="potted">Potted</span> <b id="hud-potted">0/7</b></span>
       </div>
       <div class="actions">
-        <button id="btn-mute">Sonido</button>
-        <button id="btn-restart" data-i18n="restart">Reiniciar</button>
-        <button id="btn-menu" data-i18n="menu">Menú</button>
+        <button id="btn-mute">Sound</button>
+        <button id="btn-restart" data-i18n="restart">Restart</button>
+        <button id="btn-menu" data-i18n="menu">Menu</button>
       </div>
     </div>
 
     <div id="balls-left"></div>
-    <div id="hint" data-i18n="aimHint">Arrastra desde la bola blanca y suelta para tirar. Cuanto más estiras, más fuerza.</div>
+    <div id="hint" data-i18n="aimHint">Drag from the cue ball and release to shoot. The further you pull, the more power.</div>
     <div id="toast"></div>
     <div id="banner"><div class="txt"></div></div>
 
     <div id="notif-modal" class="modal">
       <div class="box">
-        <p data-i18n="notifQuestion">¿Deseas habilitar las notificaciones para saber cuando es tu turno si estás haciendo otras cosas?</p>
-        <div class="row">
-          <button class="primary" id="notif-accept" data-i18n="accept">Aceptar</button>
-          <button id="notif-reject" data-i18n="reject">Rechazar</button>
+        <p data-i18n="notifQuestion">Do you want to enable notifications to know when it is your turn while you are doing other things?</p>
+        <div class="buttons">
+          <button class="primary" id="notif-accept" data-i18n="accept">Accept</button>
+          <button id="notif-reject" data-i18n="reject">Decline</button>
         </div>
       </div>
     </div>
 
     <div id="confirm-modal" class="modal">
       <div class="box">
-        <p id="confirm-text">¿Estás seguro de que quieres reiniciar la partida?</p>
-        <div class="row">
-          <button class="primary" id="confirm-accept" data-i18n="accept">Aceptar</button>
-          <button id="confirm-reject" data-i18n="reject">Rechazar</button>
+        <p id="confirm-text">Are you sure you want to restart the game?</p>
+        <div class="buttons">
+          <button class="primary" id="confirm-accept" data-i18n="accept">Accept</button>
+          <button id="confirm-reject" data-i18n="reject">Decline</button>
         </div>
       </div>
     </div>
@@ -53,8 +53,8 @@
       <div class="menu-inner">
         <header class="brand">
           <div>
-            <h1>Billar</h1>
-            <p data-i18n="tagline">Practica tú solo o juega contra un amigo.</p>
+            <h1 data-i18n="title">Pool</h1>
+            <p data-i18n="tagline">Practise alone or play against a friend.</p>
           </div>
           <div class="choice" id="lang-seg">
             <button class="seg-btn" data-lang="es">ES</button>
@@ -65,14 +65,14 @@
         <div class="screen active" id="screen-main">
           <ul class="rows">
             <li>
-              <button class="row" id="btn-solo">
-                <span class="row-name" data-i18n="solo">Solo</span>
+              <button class="option" id="btn-solo">
+                <span class="row-name" data-i18n="solo">Singleplayer</span>
                 <span class="row-desc" data-i18n="soloDesc">Free practice, no opponent.</span>
               </button>
             </li>
             <li>
-              <button class="row" id="btn-multi">
-                <span class="row-name" data-i18n="multiplayer">Multijugador</span>
+              <button class="option" id="btn-multi">
+                <span class="row-name" data-i18n="multiplayer">Multiplayer</span>
                 <span class="row-desc" data-i18n="multiDesc">One opponent, a four-letter code.</span>
               </button>
             </li>
@@ -80,17 +80,17 @@
         </div>
 
         <div class="screen" id="screen-mp">
-          <button class="back" data-back="screen-main"><span class="arrow" aria-hidden="true">←</span><span data-i18n="back">Volver</span></button>
+          <button class="back" data-back="screen-main"><span class="arrow" aria-hidden="true">←</span><span data-i18n="back">Back</span></button>
           <ul class="rows">
             <li>
-              <button class="row" id="btn-create">
-                <span class="row-name" data-i18n="create">Crear partida</span>
+              <button class="option" id="btn-create">
+                <span class="row-name" data-i18n="create">Create game</span>
                 <span class="row-desc" data-i18n="createDesc">Get a code and wait for your opponent.</span>
               </button>
             </li>
             <li>
-              <button class="row" id="btn-join">
-                <span class="row-name" data-i18n="join">Unirse a partida</span>
+              <button class="option" id="btn-join">
+                <span class="row-name" data-i18n="join">Join game</span>
                 <span class="row-desc" data-i18n="joinDesc">Type the other player's code.</span>
               </button>
             </li>
@@ -98,16 +98,16 @@
         </div>
 
         <div class="screen" id="screen-host">
-          <button class="back" data-back="screen-mp"><span class="arrow" aria-hidden="true">←</span><span data-i18n="back">Volver</span></button>
-          <p class="hint" data-i18n="hostHint">Comparte este código con quien quieras jugar.</p>
+          <button class="back" data-back="screen-mp"><span class="arrow" aria-hidden="true">←</span><span data-i18n="back">Back</span></button>
+          <p class="hint" data-i18n="hostHint">Share this code with whoever you want to play.</p>
           <p class="code" id="host-code">····</p>
         </div>
 
         <div class="screen" id="screen-join">
-          <button class="back" data-back="screen-mp"><span class="arrow" aria-hidden="true">←</span><span data-i18n="back">Volver</span></button>
-          <p class="hint" data-i18n="joinHint">Escribe el código de la sala.</p>
+          <button class="back" data-back="screen-mp"><span class="arrow" aria-hidden="true">←</span><span data-i18n="back">Back</span></button>
+          <p class="hint" data-i18n="joinHint">Enter the room code.</p>
           <input id="join-code" maxlength="4" placeholder="ABCD" autocomplete="off" spellcheck="false" />
-          <button class="action" id="btn-connect" data-i18n="connect">Conectar</button>
+          <button class="action" id="btn-connect" data-i18n="connect">Connect</button>
           <p class="status" id="join-status"></p>
         </div>
 

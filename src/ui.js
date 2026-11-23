@@ -99,7 +99,7 @@ export function updateBallsLeft(mode, balls, groups, myPlayer) {
 
     const nums = group === 'solids' ? [1, 2, 3, 4, 5, 6, 7] : [9, 10, 11, 12, 13, 14, 15];
     const row = document.createElement('div');
-    row.className = 'row';
+    row.className = 'group';
 
     const lbl = document.createElement('span');
     lbl.className = 'lbl';

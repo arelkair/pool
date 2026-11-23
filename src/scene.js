@@ -1,6 +1,11 @@
 import { Container, Graphics, Text, Sprite, Rectangle, FillGradient } from 'pixi.js';
 import { CANVAS_W, CANVAS_H, CUSHION, TABLE_W, TABLE_H, BALL_R, POCKET_R, BALL_COLORS } from './config.js';
 import { pocketPositions } from './physics.js';
+import { t } from './i18n.js';
+
+const INK = 0xe8e8e8;
+const MUTED = 0x8f8f8f;
+const PAPER = 0x0f0f0f;
 
 export function drawTable() {
   const g = new Graphics();
@@ -10,8 +15,8 @@ export function drawTable() {
     colorStops: [{ offset: 0, color: 0x8a5a30 }, { offset: 0.5, color: 0x5c3b1d }, { offset: 1, color: 0x36230f }],
     textureSpace: 'local',
   });
-  g.roundRect(0, 0, CANVAS_W, CANVAS_H, 16).fill(wood);
-  g.roundRect(3, 3, CANVAS_W - 6, CANVAS_H - 6, 13).stroke({ width: 2, color: 0xffe2b0, alpha: 0.18 });
+  g.roundRect(0, 0, CANVAS_W, CANVAS_H, 8).fill(wood);
+  g.roundRect(3, 3, CANVAS_W - 6, CANVAS_H - 6, 6).stroke({ width: 2, color: 0xffe2b0, alpha: 0.18 });
 
   g.rect(CUSHION - 8, CUSHION - 8, TABLE_W + 16, TABLE_H + 16).fill(0x1b6e3a);
 
@@ -66,7 +71,7 @@ function faceGraphics(number, color) {
 
   if (!isCue) {
     g.addChild(new Graphics().circle(0, 0, BALL_R * 0.48).fill(0xfbf7ec));
-    const label = new Text({ text: String(number), style: { fontFamily: 'Arial, sans-serif', fontSize: 9, fontWeight: 'bold', fill: 0x111111 } });
+    const label = new Text({ text: String(number), style: { fontFamily: 'Allo, system-ui, sans-serif', fontSize: 9, fontWeight: '700', fill: 0x111111 } });
     label.anchor.set(0.5);
     g.addChild(label);
   }
@@ -133,7 +138,7 @@ export function buildBallVisual(ball) {
 
 export function drawAim(g, cue, mx, my, power = 1) {
   g.clear();
-  g.moveTo(cue.x, cue.y).lineTo(mx, my).stroke({ width: 1, color: 0xffffff, alpha: 0.25 });
+  g.moveTo(cue.x, cue.y).lineTo(mx, my).stroke({ width: 1, color: INK, alpha: 0.25 });
 
   const len = Math.hypot(cue.x - mx, cue.y - my) || 1;
   let dx = (cue.x - mx) / len, dy = (cue.y - my) / len;
@@ -158,14 +163,14 @@ export function drawAim(g, cue, mx, my, power = 1) {
     if (Math.abs(ny - minY) < 0.6 || Math.abs(ny - maxY) < 0.6) dy = -dy;
     x = nx; y = ny;
   }
-  g.stroke({ width: 1, color: 0xff5050, alpha: 0.3 });
+  g.stroke({ width: 1, color: INK, alpha: 0.45 });
 }
 
 export function drawPower(g, label, frac) {
-  const x = 24, y = CANVAS_H - 22, w = 200, h = 12;
-  const r = Math.round(255 * frac), gr = Math.round(255 * (1 - frac));
+  const x = CUSHION + 40, y = CANVAS_H - CUSHION - 26, w = 200, h = 12;
   g.clear();
-  g.rect(x, y, w, h).fill({ color: 0x000000, alpha: 0.5 }).stroke({ width: 1, color: 0xffffff, alpha: 0.6 });
-  g.rect(x + 1, y + 1, (w - 2) * frac, h - 2).fill((r << 16) | (gr << 8));
+  g.roundRect(x, y, w, h, 4).fill({ color: PAPER, alpha: 0.7 }).stroke({ width: 1, color: MUTED, alpha: 0.6 });
+  g.roundRect(x + 2, y + 2, (w - 4) * frac, h - 4, 2).fill(INK);
+  label.text = t('power');
   label.visible = true;
 }

@@ -56,7 +56,7 @@ function ensureMusic() {
   musicNode.loop = true;
   const gain = ctx.createGain();
   gain.gain.setValueAtTime(0.0001, ctx.currentTime);
-  gain.gain.exponentialRampToValueAtTime(0.5, ctx.currentTime + 3);
+  gain.gain.exponentialRampToValueAtTime(0.4, ctx.currentTime + 3);
   musicNode.connect(gain).connect(master);
   musicNode.start();
 }
@@ -118,15 +118,15 @@ export function uiClick() {
   const t = ctx.currentTime;
   const osc = ctx.createOscillator();
   const gain = ctx.createGain();
-  osc.type = 'triangle';
-  osc.frequency.setValueAtTime(1240, t);
-  osc.frequency.exponentialRampToValueAtTime(780, t + 0.035);
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(660, t);
+  osc.frequency.exponentialRampToValueAtTime(440, t + 0.05);
   gain.gain.setValueAtTime(0.0001, t);
-  gain.gain.exponentialRampToValueAtTime(0.7, t + 0.004);
-  gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.075);
+  gain.gain.exponentialRampToValueAtTime(0.5, t + 0.005);
+  gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.09);
   osc.connect(gain).connect(sfxGain);
   osc.start(t);
-  osc.stop(t + 0.09);
+  osc.stop(t + 0.11);
 }
 
 export function notify() {

@@ -32,6 +32,8 @@ body {
 }
 
 #app canvas {
+  width: min(100vw, calc(100dvh * 1060 / 560));
+  height: auto;
   cursor: grab;
 }
 
@@ -153,7 +155,7 @@ body {
   list-style: none;
 }
 
-.row {
+.option {
   display: grid;
   grid-template-columns: 13rem minmax(0, 1fr);
   gap: 2px 24px;
@@ -170,11 +172,11 @@ body {
   transition: background-color 160ms ease, color 160ms ease;
 }
 
-.row:hover {
+.option:hover {
   background: color-mix(in srgb, var(--felt) 32%, transparent);
 }
 
-.row:hover .row-name {
+.option:hover .row-name {
   color: #fff;
 }
 
@@ -330,6 +332,10 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+#hud .line span {
+  white-space: nowrap;
+}
+
 #hud .line b {
   color: var(--ink);
   font-weight: 600;
@@ -367,7 +373,7 @@ body {
 
 #balls-left {
   position: fixed;
-  top: 46px;
+  top: 52px;
   left: 18px;
   z-index: 5;
   display: none;
@@ -380,13 +386,13 @@ body {
   display: flex;
 }
 
-#balls-left .row {
+#balls-left .group {
   display: flex;
   gap: 5px;
   align-items: center;
 }
 
-#balls-left .row .lbl {
+#balls-left .group .lbl {
   width: auto;
   margin-right: 4px;
   font-size: 0.75rem;
@@ -525,7 +531,7 @@ body {
   line-height: 1.6;
 }
 
-.modal .box .row {
+.modal .box .buttons {
   display: flex;
   gap: 10px;
   justify-content: flex-end;
@@ -567,7 +573,7 @@ body {
     margin-inline: -12px;
   }
 
-  .row {
+  .option {
     grid-template-columns: minmax(0, 1fr);
     gap: 0;
     padding: 12px;
@@ -577,8 +583,14 @@ body {
     margin-top: 2px;
   }
 
+  #hud {
+    flex-wrap: wrap;
+    gap: 2px 12px;
+    padding: 12px 18px;
+  }
+
   #hud .line {
-    gap: 10px;
+    gap: 12px;
   }
 
   #hud .actions {
