@@ -1,13 +1,10 @@
 let ctx = null;
 let master = null;
-let musicGain = null;
 let sfxGain = null;
 let muted = false;
 let lastHit = 0;
-let musicSource = null;
 
 const buffers = new Map();
-let musicBuffer = null;
 
 const SFX_FILES = {
   ballHit: ['ball-hit-1.ogg', 'ball-hit-2.ogg'],
@@ -15,13 +12,11 @@ const SFX_FILES = {
   pocket: ['pocket.ogg'],
   cueStrike: ['cue-strike.ogg'],
   uiClick: ['ui-click.ogg'],
-  uiHover: ['ui-hover.ogg'],
   notify: ['notify.ogg'],
   turnChime: ['turn-chime.ogg'],
   win: ['win.ogg'],
   lose: ['lose.ogg'],
 };
-const MUSIC_FILE = 'music-loop.ogg';
 
 function ensure() {
   if (ctx) return ctx;
@@ -32,9 +27,6 @@ function ensure() {
   sfxGain = ctx.createGain();
   sfxGain.gain.value = 0.9;
   sfxGain.connect(master);
-  musicGain = ctx.createGain();
-  musicGain.gain.value = 0.0;
-  musicGain.connect(master);
   loadSounds();
   return ctx;
 }
@@ -49,7 +41,6 @@ function loadSounds() {
   for (const [key, files] of Object.entries(SFX_FILES)) {
     Promise.all(files.map(loadOne)).then((bufs) => buffers.set(key, bufs)).catch(() => {});
   }
-  loadOne(MUSIC_FILE).then((b) => { musicBuffer = b; }).catch(() => {});
 }
 
 export function resume() {
@@ -66,7 +57,7 @@ export function isMuted() {
   return muted;
 }
 
-function play(name, { gain = 1, rate = 1, dest = sfxGain } = {}) {
+function play(name, { gain = 1, rate = 1 } = {}) {
   if (!ctx || muted) return;
   const variants = buffers.get(name);
   if (!variants || !variants.length) return;
@@ -77,7 +68,7 @@ function play(name, { gain = 1, rate = 1, dest = sfxGain } = {}) {
   const g = ctx.createGain();
   g.gain.value = gain;
   src.connect(g);
-  g.connect(dest || sfxGain);
+  g.connect(sfxGain);
   src.start();
 }
 
@@ -107,10 +98,6 @@ export function uiClick() {
   play('uiClick', { gain: 0.7 });
 }
 
-export function uiHover() {
-  play('uiHover', { gain: 0.4 });
-}
-
 export function notify() {
   play('notify', { gain: 0.8 });
 }
@@ -125,33 +112,4 @@ export function win() {
 
 export function lose() {
   play('lose', { gain: 0.85 });
-}
-
-export function startMusic() {
-  ensure();
-  if (musicSource || !musicBuffer) {
-    if (!musicBuffer) loadOne(MUSIC_FILE).then((b) => { musicBuffer = b; startMusic(); }).catch(() => {});
-    return;
-  }
-  musicSource = ctx.createBufferSource();
-  musicSource.buffer = musicBuffer;
-  musicSource.loop = true;
-  musicSource.connect(musicGain);
-  musicGain.gain.cancelScheduledValues(ctx.currentTime);
-  musicGain.gain.setValueAtTime(musicGain.gain.value, ctx.currentTime);
-  musicGain.gain.linearRampToValueAtTime(0.5, ctx.currentTime + 2);
-  musicSource.start();
-}
-
-export function stopMusic() {
-  if (musicGain && ctx) {
-    musicGain.gain.cancelScheduledValues(ctx.currentTime);
-    musicGain.gain.setValueAtTime(musicGain.gain.value, ctx.currentTime);
-    musicGain.gain.linearRampToValueAtTime(0, ctx.currentTime + 1);
-  }
-  if (musicSource) {
-    const s = musicSource;
-    musicSource = null;
-    setTimeout(() => { try { s.stop(); } catch {} }, 1100);
-  }
 }

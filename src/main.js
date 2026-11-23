@@ -1,5 +1,5 @@
 import { Application, Container, Graphics, Text } from 'pixi.js';
-import { CANVAS_W, CANVAS_H, MAX_DRAG, MIN_DRAG, POWER_CURVE } from './config.js';
+import { CANVAS_W, CANVAS_H, MAX_DRAG, MIN_DRAG, POWER_CURVE, BALL_COLORS } from './config.js';
 import { rack, step, allStopped, shoot, placeCue } from './physics.js';
 import { drawTable, buildBallVisual, drawAim, drawPower, initBallTextures } from './scene.js';
 import { host, join } from './net.js';
@@ -56,9 +56,7 @@ async function main() {
   app.ticker.add(renderFrame);
 
   wireMenu();
-
-  const kick = () => { audio.resume(); audio.startMusic(); window.removeEventListener('pointerdown', kick); };
-  window.addEventListener('pointerdown', kick);
+  renderBallStrip();
 }
 
 function physicsLoop() {
@@ -537,7 +535,6 @@ function startJoin() {
 function wireMenu() {
   const click = (id, fn) => { ui.el(id).onclick = () => { audio.resume(); audio.uiClick(); fn(); }; };
 
-  click('btn-settings', () => ui.showScreen('screen-settings'));
   document.querySelectorAll('[data-back]').forEach((b) => { b.onclick = () => { audio.uiClick(); closeNet(); ui.showScreen(b.dataset.back); }; });
 
   click('btn-solo', () => { closeNet(); game.mode = 'solo'; setupRack(); stopBanners(); ui.enterGame(); ui.updateTurn('solo'); ui.updateGroup('solo'); });
@@ -576,7 +573,18 @@ function wireMenu() {
     leaveGame();
   };
 
-  document.querySelectorAll('.row').forEach((b) => b.addEventListener('pointerenter', () => audio.uiHover()));
+  function renderBallStrip() {
+  const box = ui.el('ball-strip');
+  if (!box) return;
+  for (let n = 1; n <= 15; n++) {
+    const hex = '#' + BALL_COLORS[n].toString(16).padStart(6, '0');
+    const dot = document.createElement('i');
+    dot.style.background = n > 8
+      ? `linear-gradient(#f2eee4 0 26%, ${hex} 26% 74%, #f2eee4 74%)`
+      : hex;
+    box.appendChild(dot);
+  }
+}
 }
 
 main();

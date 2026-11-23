@@ -52,8 +52,14 @@
     <div id="menu">
       <div class="menu-inner">
         <header class="brand">
-          <h1>Pool</h1>
-          <p data-i18n="tagline">8-ball, peer to peer.</p>
+          <div>
+            <h1>Pool</h1>
+            <p data-i18n="tagline">8-ball, peer to peer.</p>
+          </div>
+          <div class="choice" id="lang-seg">
+            <button class="seg-btn" data-lang="es">ES</button>
+            <button class="seg-btn" data-lang="en">EN</button>
+          </div>
         </header>
 
         <div class="screen active" id="screen-main">
@@ -68,12 +74,6 @@
               <button class="row" id="btn-multi">
                 <span class="row-name" data-i18n="multiplayer">Multijugador</span>
                 <span class="row-desc" data-i18n="multiDesc">One opponent, a four-letter code.</span>
-              </button>
-            </li>
-            <li>
-              <button class="row" id="btn-settings">
-                <span class="row-name" data-i18n="settings">Ajustes</span>
-                <span class="row-desc" data-i18n="settingsDesc">Language.</span>
               </button>
             </li>
           </ul>
@@ -111,14 +111,7 @@
           <p class="status" id="join-status"></p>
         </div>
 
-        <div class="screen" id="screen-settings">
-          <button class="back" data-back="screen-main"><span class="arrow" aria-hidden="true">←</span><span data-i18n="back">Volver</span></button>
-          <p class="hint" data-i18n="language">Idioma</p>
-          <div class="choice" id="lang-seg">
-            <button class="seg-btn" data-lang="es" data-i18n="spanish">Español</button>
-            <button class="seg-btn" data-lang="en" data-i18n="english">Inglés</button>
-          </div>
-        </div>
+        <div class="balls" id="ball-strip" aria-hidden="true"></div>
       </div>
     </div>
 
