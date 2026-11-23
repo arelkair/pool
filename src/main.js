@@ -537,9 +537,7 @@ function startJoin() {
 function wireMenu() {
   const click = (id, fn) => { ui.el(id).onclick = () => { audio.resume(); audio.uiClick(); fn(); }; };
 
-  click('btn-play', () => ui.showScreen('screen-mode'));
-  click('btn-settings', () => { const s = ui.el('settings'); s.style.display = s.style.display === 'none' ? 'flex' : 'none'; });
-  click('btn-quit', () => window.close());
+  click('btn-settings', () => ui.showScreen('screen-settings'));
   document.querySelectorAll('[data-back]').forEach((b) => { b.onclick = () => { audio.uiClick(); closeNet(); ui.showScreen(b.dataset.back); }; });
 
   click('btn-solo', () => { closeNet(); game.mode = 'solo'; setupRack(); stopBanners(); ui.enterGame(); ui.updateTurn('solo'); ui.updateGroup('solo'); });
@@ -578,7 +576,7 @@ function wireMenu() {
     leaveGame();
   };
 
-  document.querySelectorAll('.glass').forEach((b) => b.addEventListener('pointerenter', () => audio.uiHover()));
+  document.querySelectorAll('.row').forEach((b) => b.addEventListener('pointerenter', () => audio.uiHover()));
 }
 
 main();
