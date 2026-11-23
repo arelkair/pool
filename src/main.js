@@ -41,10 +41,11 @@ async function main() {
 
   initBallTextures(app.renderer);
   applyStatic();
+  ui.setMuteIcon(audio.isMuted());
 
   const markLang = () => document.querySelectorAll('#lang-seg .seg-btn').forEach((b) => b.classList.toggle('active', b.dataset.lang === getLang()));
   document.querySelectorAll('#lang-seg .seg-btn').forEach((b) => {
-    b.onclick = () => { audio.resume(); audio.uiClick(); setLang(b.dataset.lang); markLang(); refreshHud(); ui.updateTurn(game.mode, game.turn === game.myPlayer); };
+    b.onclick = () => { audio.resume(); audio.uiClick(); setLang(b.dataset.lang); markLang(); ui.setMuteIcon(audio.isMuted()); refreshHud(); ui.updateTurn(game.mode, game.turn === game.myPlayer); };
   });
   markLang();
 

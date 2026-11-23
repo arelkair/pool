@@ -4,21 +4,21 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Pool</title>
+    <title>Billar</title>
     <link rel="stylesheet" href="/src/styles.css" />
   </head>
   <body>
     <div id="app"></div>
 
     <div id="hud">
-      <div class="stats">
-        <span class="pill" id="hud-turn">Tú</span>
-        <span class="pill" id="hud-group">Lisas</span>
-        <span class="pill"><span data-i18n="shots">Tiros</span>: <b id="hud-shots">0</b></span>
-        <span class="pill"><span data-i18n="potted">Embocadas</span>: <b id="hud-potted">0/7</b></span>
+      <div class="line">
+        <span id="hud-turn"></span>
+        <span id="hud-group"></span>
+        <span><span data-i18n="shots">Tiros</span> <b id="hud-shots">0</b></span>
+        <span><span data-i18n="potted">Embocadas</span> <b id="hud-potted">0/7</b></span>
       </div>
       <div class="actions">
-        <button id="btn-mute" title="Silenciar">🔊</button>
+        <button id="btn-mute">Sonido</button>
         <button id="btn-restart" data-i18n="restart">Reiniciar</button>
         <button id="btn-menu" data-i18n="menu">Menú</button>
       </div>
@@ -53,8 +53,8 @@
       <div class="menu-inner">
         <header class="brand">
           <div>
-            <h1>Pool</h1>
-            <p data-i18n="tagline">8-ball, peer to peer.</p>
+            <h1>Billar</h1>
+            <p data-i18n="tagline">Practica tú solo o juega contra un amigo.</p>
           </div>
           <div class="choice" id="lang-seg">
             <button class="seg-btn" data-lang="es">ES</button>

@@ -11,12 +11,14 @@ const SFX_FILES = {
   railHit: ['rail-hit.ogg'],
   pocket: ['pocket.ogg'],
   cueStrike: ['cue-strike.ogg'],
-  uiClick: ['ui-click.ogg'],
   notify: ['notify.ogg'],
   turnChime: ['turn-chime.ogg'],
   win: ['win.ogg'],
   lose: ['lose.ogg'],
 };
+const MUSIC_FILE = 'music-loop.ogg';
+let musicNode = null;
+let musicBuffer = null;
 
 function ensure() {
   if (ctx) return ctx;
@@ -43,9 +45,26 @@ function loadSounds() {
   }
 }
 
+function ensureMusic() {
+  if (musicNode || !ctx) return;
+  if (!musicBuffer) {
+    loadOne(MUSIC_FILE).then((b) => { musicBuffer = b; ensureMusic(); }).catch(() => {});
+    return;
+  }
+  musicNode = ctx.createBufferSource();
+  musicNode.buffer = musicBuffer;
+  musicNode.loop = true;
+  const gain = ctx.createGain();
+  gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.5, ctx.currentTime + 3);
+  musicNode.connect(gain).connect(master);
+  musicNode.start();
+}
+
 export function resume() {
   ensure();
   if (ctx.state === 'suspended') ctx.resume();
+  ensureMusic();
 }
 
 export function setMuted(m) {
@@ -95,7 +114,19 @@ export function cueStrike() {
 }
 
 export function uiClick() {
-  play('uiClick', { gain: 0.7 });
+  if (!ctx || muted) return;
+  const t = ctx.currentTime;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = 'triangle';
+  osc.frequency.setValueAtTime(1240, t);
+  osc.frequency.exponentialRampToValueAtTime(780, t + 0.035);
+  gain.gain.setValueAtTime(0.0001, t);
+  gain.gain.exponentialRampToValueAtTime(0.7, t + 0.004);
+  gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.075);
+  osc.connect(gain).connect(sfxGain);
+  osc.start(t);
+  osc.stop(t + 0.09);
 }
 
 export function notify() {

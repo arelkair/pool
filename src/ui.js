@@ -61,7 +61,7 @@ export function updateTurn(mode, mine) {
   }
   e.style.display = '';
   e.textContent = mine ? t('you') : t('rival');
-  e.style.background = mine ? 'rgba(70,220,140,.28)' : 'rgba(220,90,90,.28)';
+  e.style.color = mine ? 'var(--felt-ink)' : 'var(--rival-ink)';
 }
 
 export function updateGroup(mode, group) {
@@ -81,7 +81,7 @@ export function setStatus(id, text, error = false) {
 }
 
 export function setMuteIcon(muted) {
-  el('btn-mute').textContent = muted ? '🔇' : '🔊';
+  el('btn-mute').textContent = t(muted ? 'soundOff' : 'soundOn');
 }
 
 export function updateBallsLeft(mode, balls, groups, myPlayer) {

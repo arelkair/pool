@@ -1,6 +1,6 @@
 const STR = {
   es: {
-    tagline: 'Billar 8, directo entre navegadores.',
+    tagline: 'Practica tú solo o juega contra un amigo.',
     solo: 'Solo', soloDesc: 'Práctica libre, sin rival.',
     multiplayer: 'Multijugador', multiDesc: 'Un rival, un código de cuatro letras.',
     settings: 'Ajustes',
@@ -9,6 +9,7 @@ const STR = {
     join: 'Unirse a partida', joinDesc: 'Escribe el código de la otra persona.',
     connect: 'Conectar',
     restart: 'Reiniciar', menu: 'Menú',
+    soundOn: 'Sonido', soundOff: 'Silencio',
     hostHint: 'Comparte este código con quien quieras jugar.',
     joinHint: 'Escribe el código de la sala.',
     aimHint: 'Arrastra desde la bola blanca y suelta para tirar. Cuanto más estiras, más fuerza.',
@@ -33,7 +34,7 @@ const STR = {
     code4: 'Escribe el código de 4 letras.',
   },
   en: {
-    tagline: '8-ball, peer to peer.',
+    tagline: 'Practise alone or play against a friend.',
     solo: 'Singleplayer', soloDesc: 'Free practice, no opponent.',
     multiplayer: 'Multiplayer', multiDesc: 'One opponent, a four-letter code.',
     settings: 'Settings',
@@ -42,6 +43,7 @@ const STR = {
     join: 'Join game', joinDesc: "Type the other player's code.",
     connect: 'Connect',
     restart: 'Restart', menu: 'Menu',
+    soundOn: 'Sound', soundOff: 'Muted',
     hostHint: 'Share this code with whoever you want to play.',
     joinHint: 'Enter the room code.',
     aimHint: 'Drag from the cue ball and release to shoot. The further you pull, the more power.',
